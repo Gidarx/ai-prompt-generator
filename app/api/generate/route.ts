@@ -339,6 +339,7 @@ export async function POST(req: Request) {
       mode: body.mode,
       includeExamples: body.includeExamples !== undefined ? body.includeExamples : true,
       imageStyle: body.imageStyle,
+      language: body.language || 'portuguese',
     };
 
     // Log dos parâmetros recebidos para debug
