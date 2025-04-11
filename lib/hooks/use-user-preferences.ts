@@ -1,17 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { UserPreferences, Platform, Tone, Length } from "@/lib/types"
+import { Tone } from "@/lib/types"
+import type { UserPreferences, Platform, Length, Language } from "@/lib/types"
 
 const STORAGE_KEY = "ai-prompt-generator-preferences"
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   defaultPlatforms: ["cursor", "lovable", "bolt"],
-  defaultTone: "professional",
+  defaultTone: Tone.PROFESSIONAL,
   defaultLength: "medium",
   defaultComplexity: 50,
   defaultIncludeExamples: true,
   theme: "system",
+  language: "portuguese",
 }
 
 export function useUserPreferences() {
@@ -81,6 +83,11 @@ export function useUserPreferences() {
     updatePreferences({ theme })
   }
 
+  // Atualizar idioma
+  const updateLanguage = (language: Language) => {
+    updatePreferences({ language })
+  }
+
   // Resetar para valores padrão
   const resetToDefaults = () => {
     setPreferences(DEFAULT_PREFERENCES)
@@ -96,6 +103,7 @@ export function useUserPreferences() {
     updateDefaultComplexity,
     updateDefaultIncludeExamples,
     updateTheme,
+    updateLanguage,
     resetToDefaults,
   }
 }

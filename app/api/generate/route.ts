@@ -408,39 +408,41 @@ async function generatePromptWithGemini(params: PromptParams) {
 
     // Mapeamentos para descrições textuais
     const toneMap: Record<string, string> = {
-      [Tone.PROFESSIONAL]: "profissional e formal",
-      [Tone.FRIENDLY]: "amigável e acessível",
-      [Tone.ENTHUSIASTIC]: "entusiasmado e encorajador",
-      [Tone.CREATIVE]: "criativo e inspirador",
-      [Tone.CASUAL]: "casual e conversacional",
-      [Tone.TECHNICAL]: "técnico e preciso",
-      [Tone.NEUTRAL]: "neutro e balanceado",
-      [Tone.FORMAL]: "formal e estruturado",
-      [Tone.AUTHORITATIVE]: "autoritativo e confiante"
+      [Tone.PROFESSIONAL]: params.language === "english" ? "professional and formal" : "profissional e formal",
+      [Tone.FRIENDLY]: params.language === "english" ? "friendly and accessible" : "amigável e acessível",
+      [Tone.ENTHUSIASTIC]: params.language === "english" ? "enthusiastic and encouraging" : "entusiasmado e encorajador",
+      [Tone.CREATIVE]: params.language === "english" ? "creative and inspiring" : "criativo e inspirador",
+      [Tone.CASUAL]: params.language === "english" ? "casual and conversational" : "casual e conversacional",
+      [Tone.TECHNICAL]: params.language === "english" ? "technical and precise" : "técnico e preciso",
+      [Tone.NEUTRAL]: params.language === "english" ? "neutral and balanced" : "neutro e balanceado",
+      [Tone.FORMAL]: params.language === "english" ? "formal and structured" : "formal e estruturado",
+      [Tone.AUTHORITATIVE]: params.language === "english" ? "authoritative and confident" : "autoritativo e confiante"
     };
 
     const complexityMap: Record<string, string> = {
-      [Complexity.SIMPLE]: "simples e direto",
-      [Complexity.MODERATE]: "moderadamente detalhado",
-      [Complexity.DETAILED]: "detalhado e abrangente",
-      [Complexity.BEGINNER]: "adequado para iniciantes",
-      [Complexity.INTERMEDIATE]: "de nível intermediário",
-      [Complexity.ADVANCED]: "para nível avançado"
+      [Complexity.SIMPLE]: params.language === "english" ? "simple and direct" : "simples e direto",
+      [Complexity.MODERATE]: params.language === "english" ? "moderately detailed" : "moderadamente detalhado",
+      [Complexity.DETAILED]: params.language === "english" ? "detailed and comprehensive" : "detalhado e abrangente",
+      [Complexity.BEGINNER]: params.language === "english" ? "suitable for beginners" : "adequado para iniciantes",
+      [Complexity.INTERMEDIATE]: params.language === "english" ? "intermediate level" : "de nível intermediário",
+      [Complexity.ADVANCED]: params.language === "english" ? "advanced level" : "para nível avançado"
     };
 
     const modeMap: Record<string, string> = {
-      ["app_creation"]: "desenvolvimento de aplicativo",
-      ["image_generation"]: "geração de imagem",
-      ["content_creation"]: "criação de conteúdo",
-      ["problem_solving"]: "resolução de problemas",
-      ["coding"]: "programação",
-      ["instruct"]: "instruções passo a passo",
-      ["explain"]: "explicação detalhada"
+      ["app_creation"]: params.language === "english" ? "app development" : "desenvolvimento de aplicativo",
+      ["image_generation"]: params.language === "english" ? "image generation" : "geração de imagem",
+      ["content_creation"]: params.language === "english" ? "content creation" : "criação de conteúdo",
+      ["problem_solving"]: params.language === "english" ? "problem solving" : "resolução de problemas",
+      ["coding"]: params.language === "english" ? "programming" : "programação",
+      ["instruct"]: params.language === "english" ? "step-by-step instructions" : "instruções passo a passo",
+      ["explain"]: params.language === "english" ? "detailed explanation" : "explicação detalhada"
     };
 
     // Definições específicas para cada estilo de imagem
     const imageStyleDefinitions: Record<string, string> = {
-      "realistic": "HIPER-REALISTA, com altíssimo nível de detalhe fotográfico, texturas realistas, iluminação natural e física correta. Deve parecer uma fotografia de alta qualidade feita com câmera profissional.",
+      "realistic": params.language === "english" 
+        ? "HYPER-REALISTIC, with extremely high level of photographic detail, realistic textures, natural lighting and correct physics. It should look like a high-quality photograph taken with a professional camera."
+        : "HIPER-REALISTA, com altíssimo nível de detalhe fotográfico, texturas realistas, iluminação natural e física correta. Deve parecer uma fotografia de alta qualidade feita com câmera profissional.",
       "cinematic": "CINEMATOGRÁFICO, com enquadramento cuidadoso, profundidade de campo, contraste dramático e paleta de cores característica de filmes. Com iluminação lateral, proporção widescreen e narrativa visual.",
       "anime": "ANIME/MANGÁ, com linhas bem definidas, olhos expressivos e grandes, proporções estilizadas e elementos visuais típicos de anime japonês.",
       "cartoon": "CARTOON, com formas simplificadas, contornos evidentes, cores vivas e elementos de desenho animado. Alegre e expressivo, com proporções exageradas.",
@@ -457,60 +459,83 @@ async function generatePromptWithGemini(params: PromptParams) {
       "minimalist": "MINIMALISTA, com formas simplificadas, espaço negativo amplo, paleta de cores limitada e foco em elementos essenciais apenas."
     };
 
-    // Novo System Prompt focado na tarefa de planejamento/geração
-    let systemPrompt = `Você é um assistente de IA especialista em ${modeMap[params.mode] || 'geração de conteúdo e planejamento'}.
-Sua tarefa é analisar a solicitação do usuário e gerar uma resposta detalhada e bem estruturada em português, de acordo com o modo especificado.
+    // Definir as restrições de tamanho com base no parâmetro length
+    const lengthRestriction = params.length === 'short' 
+      ? (params.language === "english" 
+          ? "IMPORTANT LENGTH RESTRICTION: Your response MUST be MAXIMUM 6 LINES OF TEXT. Be extremely concise and focused. Do not exceed 6 lines total, including any markdown formatting or line breaks."
+          : "RESTRIÇÃO IMPORTANTE DE TAMANHO: Sua resposta DEVE ter NO MÁXIMO 6 LINHAS DE TEXTO. Seja extremamente conciso e focado. Não ultrapasse 6 linhas no total, incluindo qualquer formatação markdown ou quebras de linha."
+        )
+      : '';
+
+    // Escolha o idioma base para o systemPrompt
+    const outputLanguage = params.language === "english" ? "English" : "Portuguese";
+    
+    // Novo System Prompt com suporte a idiomas e restrição de tamanho
+    let systemPrompt = params.language === "english" 
+      ? `You are an AI assistant specializing in ${modeMap[params.mode] || 'content generation and planning'}.
+Your task is to analyze the user's request and generate a detailed and well-structured response in ${outputLanguage}, according to the specified mode.
+For "app development" mode, structure the response with sections like Objective, Features, Screen/Component Structure, Suggested Technologies, and Next Steps.
+For other modes, adapt the structure as appropriate for the task (e.g., detailed description for images, complete text for content, clear steps for instructions, etc.).
+IMPORTANT: Use Markdown formatting to structure your response. Use headings (##, ###), bullet lists (*), numbered lists (1., 2.), **bold** for emphasis, *italic* for important terms, and \`code\` when necessary. Use tables with | to present tabular information when appropriate.
+Be practical, direct to the point, and provide useful information.
+Generate only the final requested response, without introductions, meta-discourse, or additional comments such as "Sure, here is...".
+${lengthRestriction}`
+      : `Você é um assistente de IA especialista em ${modeMap[params.mode] || 'geração de conteúdo e planejamento'}.
+Sua tarefa é analisar a solicitação do usuário e gerar uma resposta detalhada e bem estruturada em ${outputLanguage}, de acordo com o modo especificado.
 Para o modo "desenvolvimento de aplicativo", estruture a resposta com seções como Objetivo, Funcionalidades, Estrutura de Telas/Componentes, Tecnologias Sugeridas e Próximos Passos.
 Para outros modos, adapte a estrutura conforme apropriado para a tarefa (ex: descrição detalhada para imagem, texto completo para conteúdo, passos claros para instruções, etc.).
 IMPORTANTE: Utilize formatação Markdown para estruturar sua resposta. Use cabeçalhos (##, ###), listas com marcadores (*), listas numeradas (1., 2.), **negrito** para ênfase, *itálico* para termos importantes, e \`código\` quando necessário. Use tabelas com | para apresentar informações tabulares quando apropriado.
 Seja prático, direto ao ponto e forneça informações úteis.
-Gere apenas a resposta final solicitada, sem introduções, metadiscursos ou comentários adicionais como "Claro, aqui está...".`;
+Gere apenas a resposta final solicitada, sem introduções, metadiscursos ou comentários adicionais como "Claro, aqui está...".
+${lengthRestriction}`;
 
     // Instruções específicas para geração de imagem com estilo definido
     if (params.mode === 'image_generation' && params.imageStyle && imageStyleDefinitions[params.imageStyle]) {
-      systemPrompt += `\n\nIMPORTANTE PARA GERAÇÃO DE IMAGEM: Você DEVE criar um prompt para uma imagem no estilo ${imageStyleDefinitions[params.imageStyle]}
+      systemPrompt += params.language === "english"
+        ? `\n\nIMPORTANT FOR IMAGE GENERATION: You MUST create a prompt for an image in the style ${imageStyleDefinitions[params.imageStyle]}
+This style is an ABSOLUTE REQUIREMENT and must define the visual aesthetics of the image.
+The image MUST be described considering the characteristics of this specific style.
+Adapt ALL visual aspects to accommodate this style.
+Include explicit references to the style ${params.imageStyle.toUpperCase()} in different parts of the prompt.`
+        : `\n\nIMPORTANTE PARA GERAÇÃO DE IMAGEM: Você DEVE criar um prompt para uma imagem no estilo ${imageStyleDefinitions[params.imageStyle]}
 Este estilo é um REQUISITO ABSOLUTO e deve definir a estética visual da imagem.
 A imagem DEVE ser descrita considerando as características deste estilo específico.
 Adapte TODOS os aspectos visuais para acomodar este estilo.
 Inclua referências explícitas ao estilo ${params.imageStyle.toUpperCase()} em diferentes partes do prompt.`;
     }
 
-    // Novo User Prompt focado na ideia central
-    let userPrompt = `Gere uma resposta detalhada para a seguinte solicitação, no modo "${modeMap[params.mode] || 'geral'}": "${params.keywords}".
+    // Novo User Prompt focado na ideia central com restrição de tamanho
+    let userPrompt = params.language === "english"
+      ? `Generate a ${params.length === 'short' ? 'very concise' : 'detailed'} response for the following request, in "${modeMap[params.mode] || 'general'}" mode: "${params.keywords}".
+
+Desired characteristics for the response:
+- Tone: ${toneMap[params.tone] || 'professional'}
+- Detail Level: ${complexityMap[params.complexity] || 'moderate'}
+${params.context ? `- Additional Context: ${params.context}` : ''}
+${params.includeExamples ? `- Include relevant examples or elaborations within the response.` : ''}
+- Use complete Markdown formatting to improve the readability of the response.
+${params.length === 'short' ? '- STRICT LENGTH LIMIT: Maximum 6 lines total, including any markdown formatting or line breaks.' : ''}`
+      : `Gere uma resposta ${params.length === 'short' ? 'muito concisa' : 'detalhada'} para a seguinte solicitação, no modo "${modeMap[params.mode] || 'geral'}": "${params.keywords}".
 
 Características desejadas para a resposta:
 - Tom: ${toneMap[params.tone] || 'profissional'}
 - Nível de Detalhe: ${complexityMap[params.complexity] || 'moderado'}
 ${params.context ? `- Contexto Adicional: ${params.context}` : ''}
 ${params.includeExamples ? `- Inclua exemplos ou elaborações relevantes dentro da resposta.` : ''}
-- Utilize formatação Markdown completa para melhorar a legibilidade da resposta.`;
+- Utilize formatação Markdown completa para melhorar a legibilidade da resposta.
+${params.length === 'short' ? '- LIMITE ESTRITO DE TAMANHO: Máximo de 6 linhas no total, incluindo qualquer formatação markdown ou quebras de linha.' : ''}`;
 
     // Adiciona instruções específicas para o modo de geração de imagem
     if (params.mode === 'image_generation' && params.imageStyle) {
-      userPrompt += `\n\nEsta solicitação é para um prompt de GERAÇÃO DE IMAGEM no estilo ${params.imageStyle.toUpperCase()}.
+      userPrompt += params.language === "english"
+        ? `\n\nThis request is for an IMAGE GENERATION prompt in ${params.imageStyle.toUpperCase()} style.
+ABSOLUTE REQUIREMENT: The image must be ${imageStyleDefinitions[params.imageStyle]}
+The image description must explicitly incorporate this visual style in all elements.
+Adapt composition, lighting, textures and other visual aspects to maximize the characteristics of the ${params.imageStyle.toUpperCase()} style.`
+        : `\n\nEsta solicitação é para um prompt de GERAÇÃO DE IMAGEM no estilo ${params.imageStyle.toUpperCase()}.
 REQUISITO ABSOLUTO: A imagem deve ser ${imageStyleDefinitions[params.imageStyle]}
 A descrição da imagem deve incorporar explicitamente esse estilo visual em todos os elementos.
 Adapte a composição, iluminação, texturas e outros aspectos visuais para maximizar as características do estilo ${params.imageStyle.toUpperCase()}.`;
-    }
-
-    // Novo Retry Prompt (se necessário)
-    let retryPrompt = `Gere uma resposta completa e bem estruturada em português para a solicitação: "${params.keywords}".
-Modo: ${modeMap[params.mode] || 'geral'}.
-Tom: ${toneMap[params.tone] || 'profissional'}.
-Nível de Detalhe: ${complexityMap[params.complexity] || 'moderado'}.
-${params.context ? `Contexto adicional: ${params.context}.` : ''}
-${params.includeExamples ? 'Inclua exemplos relevantes.' : ''}
-Siga a estrutura apropriada para o modo solicitado (ex: plano de projeto para app, descrição para imagem, etc.).
-IMPORTANTE: Use formatação Markdown abundante: cabeçalhos (##, ###), listas (*), tabelas (|), **negrito**, *itálico*, \`código\` etc. para estruturar a resposta.
-Forneça APENAS a resposta final.`;
-
-    // Adiciona instruções fortes para estilo de imagem no retry
-    if (params.mode === 'image_generation' && params.imageStyle) {
-      retryPrompt += `\n\nATENÇÃO! Este prompt é para geração de imagem no estilo ${params.imageStyle.toUpperCase()}.
-REQUISITO INEGOCIÁVEL: A imagem DEVE ser ${imageStyleDefinitions[params.imageStyle]}
-Adapte TODOS os elementos visuais para esse estilo específico.
-Inclua múltiplas menções ao estilo ${params.imageStyle.toUpperCase()} ao longo da descrição.
-A estética visual DEVE ser coerente com este estilo do início ao fim.`;
     }
 
     // --- FIM DAS ALTERAÇÕES NOS PROMPTS ---
@@ -518,7 +543,16 @@ A estética visual DEVE ser coerente com este estilo do início ao fim.`;
     // Executa a chamada para a API
     const result = await model.generateContent([systemPrompt, userPrompt]);
     const response = await result.response;
-    const text = response.text();
+    let text = response.text();
+
+    // Aplica pós-processamento para realmente garantir o máximo de 6 linhas quando o tamanho for "short"
+    if (params.length === 'short') {
+      // Divide o texto em linhas e mantém apenas as primeiras 6
+      const lines = text.split('\n');
+      if (lines.length > 6) {
+        text = lines.slice(0, 6).join('\n');
+      }
+    }
 
     // Se chegou aqui, retorna a resposta como objeto estruturado
     return {

@@ -16,7 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { PlatformSelector } from "@/components/platform-selector"
 import { useUserPreferences } from "@/lib/hooks/use-user-preferences"
-import type { Platform, Tone, Length } from "@/lib/types"
+import { Tone } from "@/lib/types"
+import type { Platform, Length, Language } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RefreshCw } from "lucide-react"
@@ -32,10 +33,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   // Estados locais para as configurações
   const [localPlatforms, setLocalPlatforms] = useState<Platform[]>([])
-  const [localTone, setLocalTone] = useState<Tone>("professional")
+  const [localTone, setLocalTone] = useState<Tone>(Tone.PROFESSIONAL)
   const [localLength, setLocalLength] = useState<Length>("medium")
   const [localComplexity, setLocalComplexity] = useState(50)
   const [localIncludeExamples, setLocalIncludeExamples] = useState(true)
+  const [localLanguage, setLocalLanguage] = useState<Language>("portuguese")
 
   // Carregar preferências quando o diálogo é aberto
   useEffect(() => {
@@ -45,6 +47,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       setLocalLength(preferences.defaultLength)
       setLocalComplexity(preferences.defaultComplexity)
       setLocalIncludeExamples(preferences.defaultIncludeExamples)
+      setLocalLanguage(preferences.language)
     }
   }, [open, isLoaded, preferences])
 
@@ -56,6 +59,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       defaultLength: localLength,
       defaultComplexity: localComplexity,
       defaultIncludeExamples: localIncludeExamples,
+      language: localLanguage,
     })
 
     toast({
@@ -109,10 +113,15 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       <SelectValue placeholder="Selecione o tom" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="professional">Profissional</SelectItem>
-                      <SelectItem value="casual">Casual</SelectItem>
-                      <SelectItem value="creative">Criativo</SelectItem>
-                      <SelectItem value="technical">Técnico</SelectItem>
+                      <SelectItem value={Tone.PROFESSIONAL}>Profissional</SelectItem>
+                      <SelectItem value={Tone.CASUAL}>Casual</SelectItem>
+                      <SelectItem value={Tone.CREATIVE}>Criativo</SelectItem>
+                      <SelectItem value={Tone.TECHNICAL}>Técnico</SelectItem>
+                      <SelectItem value={Tone.NEUTRAL}>Neutro</SelectItem>
+                      <SelectItem value={Tone.FORMAL}>Formal</SelectItem>
+                      <SelectItem value={Tone.FRIENDLY}>Amigável</SelectItem>
+                      <SelectItem value={Tone.ENTHUSIASTIC}>Entusiasmado</SelectItem>
+                      <SelectItem value={Tone.AUTHORITATIVE}>Autoritativo</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -186,6 +195,27 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 </Select>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="language" className="text-sm font-medium">
+                  Idioma das Respostas da IA
+                </Label>
+                <Select
+                  value={localLanguage}
+                  onValueChange={(value) => setLocalLanguage(value as Language)}
+                >
+                  <SelectTrigger id="language">
+                    <SelectValue placeholder="Selecione o idioma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="portuguese">Português</SelectItem>
+                    <SelectItem value="english">Inglês</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Selecione o idioma em que a IA irá gerar os prompts.
+                </p>
+              </div>
+
               <div className="p-4 bg-muted/30 rounded-lg">
                 <p className="text-sm text-muted-foreground">
                   Mais opções de personalização serão adicionadas em atualizações futuras.
@@ -200,12 +230,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <RefreshCw className="h-4 w-4" />
             Resetar
           </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave}>Salvar</Button>
-          </div>
+          <Button type="submit" onClick={handleSave}>
+            Salvar Configurações
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

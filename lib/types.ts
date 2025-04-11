@@ -25,6 +25,7 @@ export enum Complexity {
 
 export type Length = 'short' | 'medium' | 'long';
 export type PromptMode = 'app_creation' | 'image_generation' | 'content_creation' | 'problem_solving' | 'coding' | 'instruct' | 'explain';
+export type Language = 'portuguese' | 'english';
 
 export type PromptParams = {
   keywords: string;
@@ -36,6 +37,7 @@ export type PromptParams = {
   includeExamples?: boolean;
   includeClarifications?: boolean;
   imageStyle?: string; // Estilo visual para geração de imagens
+  language?: Language; // Idioma para geração do prompt
 };
 
 export type GeneratedPrompt = {
@@ -76,6 +78,7 @@ export interface UserPreferences {
   defaultComplexity: number
   defaultIncludeExamples: boolean
   theme: "light" | "dark" | "system"
+  language: Language
 }
 
 export interface PromptVersion {

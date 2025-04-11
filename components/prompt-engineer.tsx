@@ -26,7 +26,7 @@ import { usePromptHistory } from "@/lib/hooks/use-prompt-history"
 import { useUserPreferences } from "@/lib/hooks/use-user-preferences"
 import { usePromptVersions } from "@/lib/hooks/use-prompt-versions"
 import { useAIAssistant } from "@/lib/hooks/use-ai-assistant"
-import { Complexity, Platform, Tone, Length, PromptParams, GeneratedPrompt, PromptMode, PromptTemplate } from "@/lib/types"
+import { Complexity, Platform, Tone, Length, PromptParams, GeneratedPrompt, PromptMode, PromptTemplate, Language } from "@/lib/types"
 import {
   Loader2,
   Sparkles,
@@ -125,7 +125,7 @@ const imageStyles = [
 
 export function PromptEngineer() {
   const { toast } = useToast()
-  const { preferences, isLoaded: preferencesLoaded } = useUserPreferences()
+  const { preferences, isLoaded: preferencesLoaded, updatePreferences } = useUserPreferences()
   const { history, isLoading, generatePrompt } = usePromptHistory()
   const { addVersion } = usePromptVersions()
   const { toggleAssistant } = useAIAssistant() // Removido onApplySuggestion e getCurrentParams daqui
@@ -225,6 +225,7 @@ export function PromptEngineer() {
         complexity: mapNumberToComplexity(values.complexity),
         mode: values.mode as PromptMode,
         includeExamples: values.includeExamples,
+        language: preferences.language,
         // Adicionar estilo de imagem aos parâmetros quando aplicável
         ...(values.mode === "image_generation" && values.imageStyle && { imageStyle: values.imageStyle }),
       };
@@ -353,6 +354,12 @@ export function PromptEngineer() {
       mode: promptParams.mode,
       imageStyle: promptParams.imageStyle,
     });
+    
+    // Se a versão tiver idioma definido, atualiza as preferências do usuário
+    if (promptParams.language) {
+      updatePreferences({ language: promptParams.language });
+    }
+    
     setShowVersionHistory(false);
     toast({ title: "Versão carregada", description: "Parâmetros da versão selecionada foram carregados." });
   }
@@ -411,6 +418,12 @@ export function PromptEngineer() {
       mode: item.params.mode,
       imageStyle: item.params.imageStyle,
     });
+    
+    // Se o item do histórico tiver idioma definido, atualiza as preferências do usuário
+    if (item.params.language) {
+      updatePreferences({ language: item.params.language });
+    }
+    
     // Atualizar também o prompt exibido, se houver
     setGeneratedPrompt(item);
     setShowHistory(false);
@@ -432,15 +445,22 @@ export function PromptEngineer() {
           <TooltipProvider>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative">
         <Card className="lg:col-span-1 h-fit sticky top-24" elevated hover>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Gerador de Prompt
-              <div className="flex items-center space-x-1">
+          <CardHeader className="pb-2 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="bg-primary/10 p-2 rounded-lg">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                </div>
+                <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                  Gerador de Prompt
+                </CardTitle>
+              </div>
+              <div className="flex items-center gap-1.5">
                 <Dialog open={showTemplates} onOpenChange={setShowTemplates}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon-sm" rounded="full">
+                        <Button variant="outline" size="icon-sm" className="rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary">
                           <Library className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
@@ -453,7 +473,16 @@ export function PromptEngineer() {
                 </Dialog>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon-sm" rounded="full" onClick={() => setShowHistory(!showHistory)} ref={historyButtonRef}>
+                    <Button 
+                      variant="outline" 
+                      size="icon-sm" 
+                      className={cn(
+                        "rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary",
+                        showHistory && "bg-primary/20 text-primary"
+                      )}
+                      onClick={() => setShowHistory(!showHistory)} 
+                      ref={historyButtonRef}
+                    >
                       <History className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
@@ -461,7 +490,13 @@ export function PromptEngineer() {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                     <Button variant="ghost" size="icon-sm" rounded="full" onClick={() => setShowSettings(true)} ref={settingsButtonRef}>
+                     <Button 
+                       variant="outline" 
+                       size="icon-sm" 
+                       className="rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary"
+                       onClick={() => setShowSettings(true)} 
+                       ref={settingsButtonRef}
+                     >
                        <Settings className="h-4 w-4" />
                      </Button>
                   </TooltipTrigger>
@@ -469,27 +504,36 @@ export function PromptEngineer() {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon-sm" rounded="full" onClick={toggleAssistant}>
+                      <Button 
+                        variant="outline" 
+                        size="icon-sm" 
+                        className="rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary"
+                        onClick={toggleAssistant}
+                      >
                         <Bot className="h-4 w-4" />
                       </Button>
                   </TooltipTrigger>
                     <TooltipContent>Assistente IA</TooltipContent>
                 </Tooltip>
               </div>
-            </CardTitle>
+            </div>
+            <div className="h-px bg-gradient-to-r from-transparent via-muted-foreground/20 to-transparent" />
           </CardHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6 pt-3">
                  <FormField
                   control={form.control}
                   name="mode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Modo de Prompt</FormLabel>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                        <FormLabel className="font-medium">Modo de Prompt</FormLabel>
+                      </div>
                       <FormControl>
                         <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger>
+                          <SelectTrigger className="bg-background border-muted-foreground/20 focus:ring-primary/30">
                             <SelectValue placeholder="Selecione o modo do prompt" />
                           </SelectTrigger>
                           <SelectContent>
@@ -503,7 +547,7 @@ export function PromptEngineer() {
                           </SelectContent>
                         </Select>
                       </FormControl>
-                      <FormDescription>
+                      <FormDescription className="text-xs text-muted-foreground/80">
                         Como o prompt será utilizado, determinando o formato e estrutura.
                       </FormDescription>
                       <FormMessage />
@@ -515,11 +559,18 @@ export function PromptEngineer() {
                   name="keywords"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Palavras-chave / Tópico</FormLabel>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                        <FormLabel className="font-medium">Palavras-chave / Tópico</FormLabel>
+                      </div>
                       <FormControl>
-                        <Input placeholder="Ex: marketing digital para iniciantes" {...field} />
+                        <Input 
+                          placeholder="Ex: marketing digital para iniciantes" 
+                          {...field} 
+                          className="bg-background border-muted-foreground/20 focus-visible:ring-primary/30"
+                        />
                       </FormControl>
-                      <FormDescription>
+                      <FormDescription className="text-xs text-muted-foreground/80">
                         Insira as palavras-chave principais ou o tópico do prompt.
                       </FormDescription>
                       <FormMessage />
@@ -531,15 +582,18 @@ export function PromptEngineer() {
                   name="context"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Contexto (Opcional)</FormLabel>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                        <FormLabel className="font-medium">Contexto (Opcional)</FormLabel>
+                      </div>
                       <FormControl>
                         <Textarea
                           placeholder="Ex: O público-alvo são pequenas empresas..."
-                          className="resize-none"
+                          className="resize-none bg-background border-muted-foreground/20 focus-visible:ring-primary/30"
                           {...field}
                         />
                       </FormControl>
-                      <FormDescription>
+                      <FormDescription className="text-xs text-muted-foreground/80">
                         Forneça informações adicionais para refinar o prompt.
                       </FormDescription>
                       <FormMessage />
@@ -552,10 +606,13 @@ export function PromptEngineer() {
                     name="tone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tom</FormLabel>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                          <FormLabel className="font-medium">Tom</FormLabel>
+                        </div>
                          <Select onValueChange={field.onChange} value={field.value}>
                            <FormControl>
-                             <SelectTrigger>
+                             <SelectTrigger className="bg-background border-muted-foreground/20 focus:ring-primary/30">
                                <SelectValue placeholder="Selecione o tom" />
                              </SelectTrigger>
                            </FormControl>
@@ -576,10 +633,13 @@ export function PromptEngineer() {
                     name="length"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tamanho</FormLabel>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                          <FormLabel className="font-medium">Tamanho</FormLabel>
+                        </div>
                          <Select onValueChange={field.onChange} value={field.value}>
                            <FormControl>
-                             <SelectTrigger>
+                             <SelectTrigger className="bg-background border-muted-foreground/20 focus:ring-primary/30">
                                <SelectValue placeholder="Selecione o tamanho" />
                              </SelectTrigger>
                            </FormControl>
@@ -594,12 +654,59 @@ export function PromptEngineer() {
                     )}
                   />
                 </div>
+
+                {/* Seletor de Idioma */}
+                <div className="flex items-center justify-between rounded-lg border border-muted-foreground/20 p-4 shadow-sm bg-gradient-to-r from-primary/5 to-transparent">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                      <FormLabel className="text-base font-medium">Idioma da Resposta</FormLabel>
+                    </div>
+                    <FormDescription className="text-xs text-muted-foreground/80">
+                      Selecione em qual idioma a IA deve responder
+                    </FormDescription>
+                  </div>
+                  <Select 
+                    value={preferences.language} 
+                    onValueChange={(value) => {
+                      const newLanguage = value as Language;
+                      updatePreferences({ language: newLanguage });
+                      
+                      // Mostrar mensagem de confirmação
+                      const message = newLanguage === "portuguese" 
+                        ? "As respostas serão geradas em Português" 
+                        : "As respostas serão geradas em Inglês";
+                        
+                      toast({
+                        title: "Idioma alterado",
+                        description: message,
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="w-[180px] bg-background border-primary/20 hover:bg-primary/5 focus:ring-primary/30">
+                      <SelectValue placeholder="Selecione o idioma" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="portuguese">
+                        <span className="flex items-center">
+                          <span className="mr-2 text-lg">🇧🇷</span> Português
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="english">
+                        <span className="flex items-center">
+                          <span className="mr-2 text-lg">🇺🇸</span> Inglês
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div>
                   <Button
                     type="button"
                     variant="link"
                     size="sm"
-                    className="p-0 h-auto text-muted-foreground"
+                    className="p-0 h-auto text-primary/70 hover:text-primary font-medium"
                     onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
                   >
                     Opções Avançadas
@@ -620,16 +727,20 @@ export function PromptEngineer() {
                           name="complexity"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Complexidade ({field.value})</FormLabel>
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                                <FormLabel className="font-medium">Complexidade ({field.value})</FormLabel>
+                              </div>
                               <FormControl>
                                 <Slider
                                   defaultValue={[field.value]}
                                   onValueChange={(value) => field.onChange(value[0])}
                                   max={100}
                                   step={1}
+                                  className="py-2"
                                 />
                               </FormControl>
-                              <FormDescription>
+                              <FormDescription className="text-xs text-muted-foreground/80">
                                 Ajuste o nível de detalhe e complexidade do prompt.
                               </FormDescription>
                               <FormMessage />
@@ -640,10 +751,13 @@ export function PromptEngineer() {
                           control={form.control}
                           name="includeExamples"
                           render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                              <div className="space-y-0.5">
-                                <FormLabel>Incluir Exemplos</FormLabel>
-                                <FormDescription>
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border border-muted-foreground/20 p-4 shadow-sm">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                                  <FormLabel className="font-medium">Incluir Exemplos</FormLabel>
+                                </div>
+                                <FormDescription className="text-xs text-muted-foreground/80">
                                   Adicionar exemplos ao prompt gerado.
                                 </FormDescription>
                               </div>
@@ -667,13 +781,16 @@ export function PromptEngineer() {
                     name="imageStyle"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Estilo da Imagem</FormLabel>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                          <FormLabel className="font-medium">Estilo da Imagem</FormLabel>
+                        </div>
                         <FormControl>
                           <Select 
                             value={field.value || "realistic"} 
                             onValueChange={field.onChange}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="bg-background border-muted-foreground/20 focus:ring-primary/30">
                               <SelectValue placeholder="Selecione um estilo visual" />
                             </SelectTrigger>
                             <SelectContent>
@@ -685,7 +802,7 @@ export function PromptEngineer() {
                             </SelectContent>
                           </Select>
                         </FormControl>
-                        <FormDescription>
+                        <FormDescription className="text-xs text-muted-foreground/80">
                           O estilo visual que a IA deve usar para gerar a imagem.
                         </FormDescription>
                         <FormMessage />
@@ -694,20 +811,25 @@ export function PromptEngineer() {
                   />
                 )}
               </CardContent>
-              <CardFooter>
-              <Button type="submit" disabled={isLoading} className="w-full" ref={generateButtonRef}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Gerando...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Gerar Prompt (Ctrl+Enter)
-                  </>
-                )}
-              </Button>
+              <CardFooter className="pt-2 pb-6">
+                <Button 
+                  type="submit" 
+                  disabled={isLoading} 
+                  className="w-full h-12 rounded-lg bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md transition-all"
+                  ref={generateButtonRef}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-5 w-5" />
+                      Gerar Prompt (Ctrl+Enter)
+                    </>
+                  )}
+                </Button>
               </CardFooter>
             </form>
           </Form>
