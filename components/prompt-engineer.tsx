@@ -121,6 +121,8 @@ const imageStyles = [
   { value: "fantasy", label: "Fantasia" },
   { value: "surrealism", label: "Surrealismo" },
   { value: "minimalist", label: "Minimalista" },
+  { value: "collectible_figure", label: "Figura Colecionável" },
+  { value: "cinematic_double_exposure", label: "Dupla Exposição Cinematográfica" },
 ];
 
 export function PromptEngineer() {
@@ -407,7 +409,7 @@ export function PromptEngineer() {
   };
 
   const handleSelectHistoryItem = (item: GeneratedPrompt) => {
-    console.log("Item do histórico selecionado:", item);
+    console.log("Item selecionado:", item);
     form.reset({
       keywords: item.params.keywords,
       context: item.params.context ?? "",
@@ -418,27 +420,112 @@ export function PromptEngineer() {
       mode: item.params.mode,
       imageStyle: item.params.imageStyle,
     });
-    
-    // Se o item do histórico tiver idioma definido, atualiza as preferências do usuário
+    // Se o item do histórico tiver idioma definido, atualiza as preferências
     if (item.params.language) {
       updatePreferences({ language: item.params.language });
     }
-    
-    // Atualizar também o prompt exibido, se houver
-    setGeneratedPrompt(item);
     setShowHistory(false);
-    toast({ title: "Histórico carregado", description: "Parâmetros carregados." });
-  };
+    setGeneratedPrompt(item);
+    toast({ title: "Prompt carregado", description: "O prompt selecionado foi carregado do histórico." });
+  }
+
+  // Função para gerar um tema aleatório
+  const suggestPromptTopic = () => {
+    // Lista de temas interessantes para diferentes modos
+    const topicSuggestions = {
+      app_creation: [
+        "app de meditação com gamificação",
+        "gerenciador de finanças pessoais com IA",
+        "rede social para amantes de plantas",
+        "app de troca de habilidades entre profissionais",
+        "organizador de tarefas baseado no método pomodoro",
+        "plataforma de ensino de idiomas com realidade aumentada"
+      ],
+      image_generation: [
+        "paisagem futurista de cidade flutuante nas nuvens",
+        "retrato de personagem fantástico em estilo anime",
+        "cena cyberpunk com neon e chuva",
+        "animal mitológico em habitat natural",
+        "interpretação surrealista de sonho",
+        "interior minimalista com elementos naturais"
+      ],
+      content_creation: [
+        "guia para começar um podcast de sucesso",
+        "técnicas de escrita criativa para iniciantes",
+        "dicas de marketing digital para pequenos negócios",
+        "como criar conteúdo viral no TikTok",
+        "estratégias de storytelling para marcas",
+        "roteiro para vídeos educacionais"
+      ],
+      problem_solving: [
+        "otimizar processos de atendimento ao cliente",
+        "reduzir o desperdício de alimentos em restaurantes",
+        "melhorar engajamento de funcionários remotos",
+        "estratégias para redução de ansiedade no ambiente corporativo",
+        "aumentar taxa de conversão em e-commerce",
+        "implementar sistema de logística reversa"
+      ],
+      coding: [
+        "sistema de recomendação com machine learning",
+        "aplicação web com NextJS e Supabase",
+        "automação de tarefas com Python",
+        "API RESTful com autenticação e autorização",
+        "aplicativo mobile cross-platform com React Native",
+        "dashboard interativo com visualização de dados"
+      ],
+      instruct: [
+        "configurar ambiente de desenvolvimento para React",
+        "criar rotina de exercícios em casa sem equipamentos",
+        "montar um estúdio caseiro para gravações",
+        "implementar sistema de gestão ágil em equipes",
+        "fazer pão artesanal perfeito",
+        "técnicas avançadas de fotografia com smartphone"
+      ],
+      explain: [
+        "como funciona a tecnologia blockchain",
+        "o impacto da inteligência artificial na medicina",
+        "princípios básicos de design de UX/UI",
+        "como funciona o algoritmo do TikTok",
+        "conceitos fundamentais de finanças para não-financeiros",
+        "o processo de desenvolvimento de vacinas"
+      ]
+    };
+
+    // Obter o modo atual
+    const currentMode = form.getValues("mode") as PromptMode;
+    
+    // Selecionar um tema aleatório para o modo atual
+    const topicsForMode = topicSuggestions[currentMode] || topicSuggestions.content_creation;
+    const randomTopic = topicsForMode[Math.floor(Math.random() * topicsForMode.length)];
+    
+    // Atualizar o campo de palavras-chave
+    form.setValue("keywords", randomTopic);
+    
+    toast({
+      title: "Tema sugerido pela IA",
+      description: `Um tema para "${getModeLabel(currentMode)}" foi gerado.`,
+    });
+  }
 
   const copyToClipboard = () => {
-    if (!generatedPrompt) return
+    if (!generatedPrompt) return;
 
     navigator.clipboard.writeText(generatedPrompt.genericPrompt)
-    setCopied(true)
-
-    setTimeout(() => {
-      setCopied(false)
-    }, 2000)
+      .then(() => {
+        setCopied(true);
+        toast({
+          title: "Copiado!",
+          description: "O prompt foi copiado para a área de transferência."
+        });
+      })
+      .catch(err => {
+        console.error("Erro ao copiar:", err);
+        toast({
+          title: "Erro ao copiar",
+          description: "Não foi possível copiar o texto. Tente novamente.",
+          variant: "destructive"
+        });
+      });
   }
 
   return (
@@ -563,13 +650,29 @@ export function PromptEngineer() {
                         <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
                         <FormLabel className="font-medium">Palavras-chave / Tópico</FormLabel>
                       </div>
-                      <FormControl>
-                        <Input 
-                          placeholder="Ex: marketing digital para iniciantes" 
-                          {...field} 
-                          className="bg-background border-muted-foreground/20 focus-visible:ring-primary/30"
-                        />
-                      </FormControl>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input 
+                            placeholder="Ex: marketing digital para iniciantes" 
+                            {...field} 
+                            className="bg-background border-muted-foreground/20 focus-visible:ring-primary/30"
+                          />
+                        </FormControl>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={suggestPromptTopic}
+                              className="shrink-0 h-10 w-10 border-primary/20 bg-primary/5 hover:bg-primary/10"
+                            >
+                              <Sparkles className="h-4 w-4 text-primary" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Sugerir tema para o prompt</TooltipContent>
+                        </Tooltip>
+                      </div>
                       <FormDescription className="text-xs text-muted-foreground/80">
                         Insira as palavras-chave principais ou o tópico do prompt.
                       </FormDescription>
