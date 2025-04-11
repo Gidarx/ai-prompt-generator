@@ -2,6 +2,10 @@ import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/ge
 import { NextResponse } from 'next/server';
 import { PromptParams, Complexity, PromptMode, Tone } from '@/lib/types';
 
+// Configuração de timeout para o Vercel - aumenta o limite para 60 segundos (o padrão é 10s)
+export const maxDuration = 60; // segundos
+export const dynamic = 'force-dynamic';
+
 // Inicializa o modelo do Google Gemini
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
 const modelId = 'gemini-2.0-flash-thinking-exp-01-21';
@@ -310,36 +314,95 @@ function generateFallbackPrompt(params: PromptParams): string {
   return basePrompt;
 }
 
+/**
+ * Função principal que recebe as solicitações POST para geração de prompts
+ */
 export async function POST(req: Request) {
-  console.log('Recebendo solicitação de geração de prompt');
   try {
-    // Extrai e valida parâmetros
-    const params: PromptParams = await req.json();
+    const body = await req.json();
 
-    // Verifica se os parâmetros essenciais existem
-    if (!params.keywords || params.keywords.trim() === '') {
-      console.error('Parâmetros inválidos: keywords vazio ou ausente');
+    // Verifica se todos os parâmetros obrigatórios foram fornecidos
+    if (!body.keywords || !body.tone || !body.complexity || !body.mode) {
       return NextResponse.json(
-        { error: 'Palavras-chave são obrigatórias' },
+        { error: "Parâmetros incompletos" },
         { status: 400 }
       );
     }
 
-    // Corrige e normaliza as palavras-chave
-    const correctedKeywords = correctKeywords(params.keywords);
-    console.log(`Keywords originais: "${params.keywords}", corrigidas: "${correctedKeywords}"`);
+    // Extrai e normaliza os parâmetros
+    const params: PromptParams = {
+      keywords: correctKeywords(body.keywords),
+      context: body.context,
+      tone: body.tone,
+      length: body.length || 'medium',
+      complexity: body.complexity,
+      mode: body.mode,
+      includeExamples: body.includeExamples !== undefined ? body.includeExamples : true,
+      imageStyle: body.imageStyle,
+    };
 
-    // Configura o modelo
-    const model = genAI.getGenerativeModel({
-      model: modelId,
-      generationConfig: {
-        temperature: 0.7, // Manter alguma criatividade
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 2048, // Aumentar para permitir respostas mais detalhadas
-      },
-      safetySettings,
+    // Log dos parâmetros recebidos para debug
+    console.log("Gerando prompt com os parâmetros:", params);
+
+    // Constantes para retentativas
+    const MAX_RETRIES = 3;
+    const INITIAL_TIMEOUT = 20000; // 20 segundos para primeira tentativa
+    
+    // Implementação de retentativas com timeout crescente
+    let lastError = null;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        // Timeout aumenta a cada tentativa (20s, 30s, 40s)
+        const timeout = INITIAL_TIMEOUT + (attempt * 10000);
+        
+        // Promessa da chamada da API com timeout
+        const responsePromise = generatePromptWithGemini(params);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`Timeout após ${timeout/1000} segundos`)), timeout)
+        );
+        
+        // Compete entre resposta e timeout
+        const response = await Promise.race([responsePromise, timeoutPromise]);
+        
+        // Se chegou aqui, retorna o resultado com sucesso
+        return NextResponse.json(response);
+      } catch (error: any) {
+        console.error(`Tentativa ${attempt + 1} falhou:`, error.message);
+        lastError = error;
+        
+        // Se não for a última tentativa, espera um pouco antes de tentar novamente
+        if (attempt < MAX_RETRIES - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1 segundo
+          console.log(`Tentando novamente (${attempt + 2}/${MAX_RETRIES})...`);
+        }
+      }
+    }
+
+    // Todas as tentativas falharam, usamos o fallback
+    console.warn("Todas as tentativas API falharam, usando fallback local");
+    const fallbackPrompt = generateFallbackPrompt(params);
+    
+    return NextResponse.json({
+      id: `fallback-${Date.now()}`,
+      timestamp: Date.now(),
+      params,
+      genericPrompt: fallbackPrompt,
     });
+
+  } catch (error: any) {
+    console.error("Erro na API:", error.message);
+    return NextResponse.json(
+      { error: `Erro no processamento: ${error.message}` },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Função que efetivamente faz a chamada para a API do Gemini
+ */
+async function generatePromptWithGemini(params: PromptParams) {
+  const model = genAI.getGenerativeModel({ model: modelId });
 
     // --- INÍCIO DAS ALTERAÇÕES NOS PROMPTS ---
 
@@ -413,7 +476,7 @@ Inclua referências explícitas ao estilo ${params.imageStyle.toUpperCase()} em 
     }
 
     // Novo User Prompt focado na ideia central
-    let userPrompt = `Gere uma resposta detalhada para a seguinte solicitação, no modo "${modeMap[params.mode] || 'geral'}": "${correctedKeywords}".
+    let userPrompt = `Gere uma resposta detalhada para a seguinte solicitação, no modo "${modeMap[params.mode] || 'geral'}": "${params.keywords}".
 
 Características desejadas para a resposta:
 - Tom: ${toneMap[params.tone] || 'profissional'}
@@ -431,7 +494,7 @@ Adapte a composição, iluminação, texturas e outros aspectos visuais para max
     }
 
     // Novo Retry Prompt (se necessário)
-    let retryPrompt = `Gere uma resposta completa e bem estruturada em português para a solicitação: "${correctedKeywords}".
+    let retryPrompt = `Gere uma resposta completa e bem estruturada em português para a solicitação: "${params.keywords}".
 Modo: ${modeMap[params.mode] || 'geral'}.
 Tom: ${toneMap[params.tone] || 'profissional'}.
 Nível de Detalhe: ${complexityMap[params.complexity] || 'moderado'}.
@@ -452,62 +515,16 @@ A estética visual DEVE ser coerente com este estilo do início ao fim.`;
 
     // --- FIM DAS ALTERAÇÕES NOS PROMPTS ---
 
-    try {
-      console.log('Enviando prompt para o Gemini:', userPrompt);
+    // Executa a chamada para a API
+    const result = await model.generateContent([systemPrompt, userPrompt]);
+    const response = await result.response;
+    const text = response.text();
 
-      // Faz a chamada para a API
-      const result = await model.generateContent([systemPrompt, userPrompt]);
-      const response = result.response;
-      // Adicionar log da resposta completa para depuração
-      console.log('Resposta completa do Gemini (primeira tentativa):', JSON.stringify(response, null, 2));
-      const text = response.text().trim();
-
-      console.log('Texto extraído do Gemini (primeira tentativa):', text ? `${text.substring(0, 150)}...` : '[vazia]');
-
-      // Verifica se a resposta está vazia ou muito curta (ajustar limite se necessário)
-      if (!text || text.length < 50) { // Aumentado o limite mínimo
-        console.log('Resposta vazia ou muito curta, tentando novamente com instrução mais explícita');
-
-        console.log('Retry prompt:', retryPrompt);
-        const retryResult = await model.generateContent(retryPrompt); // Usar apenas o retryPrompt na segunda tentativa
-        const retryResponse = retryResult.response;
-        // Adicionar log da resposta completa para depuração
-        console.log('Resposta completa do Gemini (segunda tentativa):', JSON.stringify(retryResponse, null, 2));
-        const retryText = retryResponse.text().trim();
-
-        console.log('Texto extraído do Gemini (segunda tentativa):', retryText ? `${retryText.substring(0, 150)}...` : '[vazia]');
-
-        if (!retryText || retryText.length < 50) { // Aumentado o limite mínimo
-          console.log('Segunda tentativa também falhou, gerando fallback');
-          // Se ainda falhar, usa o gerador de fallback
-          const fallbackPrompt = generateFallbackPrompt(params);
-          // Retornar um status diferente ou info extra para indicar fallback? Por enquanto, retorna o fallback.
-          return NextResponse.json({ genericPrompt: fallbackPrompt, fallbackUsed: true }); // Adicionado fallbackUsed
-        }
-
-        return NextResponse.json({ genericPrompt: retryText });
-      }
-
-      return NextResponse.json({ genericPrompt: text });
-
-    } catch (error: any) {
-      console.error('Erro ao gerar com Gemini:', error.message || error);
-      // Log do erro completo pode ajudar
-      console.error('Erro completo do Gemini:', error);
-      // Se a API falhar por qualquer motivo, usa o gerador de fallback
-      const fallbackPrompt = generateFallbackPrompt(params);
-      // Incluir mensagem de erro no retorno pode ajudar na depuração no frontend
-      return NextResponse.json({
-          genericPrompt: fallbackPrompt,
-          fallbackUsed: true, // Adicionado fallbackUsed
-          errorDetails: `Erro na API Gemini: ${error.message || 'Erro desconhecido'}`
-      });
-    }
-  } catch (error: any) {
-    console.error('Erro no processamento da solicitação:', error.message || error);
-    return NextResponse.json(
-      { error: 'Erro interno do servidor', details: error.message },
-      { status: 500 }
-    );
-  }
+    // Se chegou aqui, retorna a resposta como objeto estruturado
+    return {
+      id: `prompt-${Date.now()}`,
+      timestamp: Date.now(),
+      params,
+      genericPrompt: text,
+    };
 }
