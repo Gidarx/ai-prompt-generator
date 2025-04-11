@@ -123,6 +123,8 @@ const imageStyles = [
   { value: "minimalist", label: "Minimalista" },
   { value: "collectible_figure", label: "Figura Colecionável" },
   { value: "cinematic_double_exposure", label: "Dupla Exposição Cinematográfica" },
+  { value: "character_double_exposure", label: "Dupla Exposição de Personagem" },
+  { value: "midjourney_style", label: "Estilo Midjourney" },
 ];
 
 export function PromptEngineer() {
