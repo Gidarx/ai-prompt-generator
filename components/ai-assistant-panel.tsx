@@ -85,10 +85,20 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
       >
         <Button 
           onClick={toggleAssistant} 
-          className="fixed bottom-6 right-6 rounded-full h-14 w-14 shadow-lg bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 transition-all duration-300"
+          className="fixed bottom-6 right-6 rounded-full h-14 w-14 
+          shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(14,165,233,0.15)]
+          bg-gradient-to-br from-indigo-500 via-blue-500 to-sky-400 
+          hover:from-indigo-600 hover:via-blue-600 hover:to-sky-500
+          dark:from-indigo-600 dark:via-blue-600 dark:to-sky-500
+          dark:hover:from-indigo-700 dark:hover:via-blue-700 dark:hover:to-sky-600
+          hover:shadow-[0_10px_40px_rgba(59,130,246,0.3)] dark:hover:shadow-[0_10px_40px_rgba(14,165,233,0.25)]
+          transition-all duration-300 ease-in-out hover:scale-105 active:scale-95
+          border border-white/20 backdrop-blur-sm"
+          aria-label="Abrir Assistente IA"
         >
-          <Sparkles className="h-6 w-6 absolute" />
-          <Bot className="h-6 w-6 animate-pulse" style={{ animationDuration: '3s' }} />
+          <div className="relative flex items-center justify-center w-full h-full overflow-hidden">
+            <Bot className="h-6 w-6 text-white drop-shadow-md animate-pulse" style={{ animationDuration: '3s' }} />
+          </div>
         </Button>
       </motion.div>
     )

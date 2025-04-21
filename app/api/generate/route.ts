@@ -6,9 +6,10 @@ import { PromptParams, Complexity, PromptMode, Tone } from '@/lib/types';
 export const maxDuration = 60; // segundos
 export const dynamic = 'force-dynamic';
 
-// Inicializa o modelo do Google Gemini
+// Inicializa o cliente do Google Gemini (API Key é lida aqui)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
-const modelId = 'gemini-2.0-flash-thinking-exp-01-21';
+// Modelo padrão a ser usado se nenhum for especificado na requisição
+const DEFAULT_MODEL_ID = 'gemini-2.0-flash-thinking-exp-01-21'; // ATUALIZADO para o novo padrão
 
 // Configurações de segurança para bloquear conteúdo nocivo
 const safetySettings = [
@@ -30,7 +31,7 @@ const safetySettings = [
   },
 ];
 
-// Definição de correções para palavras-chave comuns
+// Definição de correções para palavras-chave comuns (expandida)
 const keywordCorrections: Record<string, string> = {
   "desingners": "designers",
   "programaçao": "programação",
@@ -53,15 +54,34 @@ const keywordCorrections: Record<string, string> = {
   "desenvolvedor": "dev",
   "ux/ui": "UX/UI design",
   "disigner": "designer",
-  "desinger": "designer"
+  "desinger": "designer",
+  "usuario": "usuário",
+  "experiencia": "experiência",
+  "api": "API",
+  "restful": "RESTful",
+  "javascript": "JavaScript",
+  "typescript": "TypeScript",
+  "reactjs": "React",
+  "nodejs": "Node.js",
+  "nextjs": "Next.js",
+  "machine learning": "machine learning", // Manter termos compostos
+  "user interface": "user interface",
+  "user experience": "user experience",
+  "data science": "data science",
+  "web development": "web development",
+  "mobile app": "mobile app",
+  "social media": "social media",
+  "blog post": "blog post",
 };
 
-// Lista de verbos instrucionais em português para detecção de instruções
+// Lista de verbos instrucionais em português para detecção de instruções (expandida)
 const instructionalVerbs = [
   "faça", "crie", "desenvolva", "elabore", "construa", "produza", "prepare",
   "monte", "conceba", "projete", "planeje", "desenhe", "escreva", "programe",
   "implemente", "ajude", "me ajude", "preciso", "quero", "desejo", "gostaria",
-  "necessito", "pode", "poderia", "como", "me dê", "sugira", "recomende"
+  "necessito", "pode", "poderia", "como", "me dê", "sugira", "recomende",
+  "gere", "liste", "explique", "resuma", "compare", "defina", "traduza",
+  "otimize", "refine", "modifique", "altere", "simplifique", "detalhe"
 ];
 
 /**
@@ -76,7 +96,8 @@ function correctKeywords(keywords: string): string {
   // Detecta se o input começa com um verbo instrucional
   const startsWithInstruction = instructionalVerbs.some(verb =>
     normalizedKeywords.startsWith(verb + " ") ||
-    normalizedKeywords.startsWith(verb + ",")
+    normalizedKeywords.startsWith(verb + ",") ||
+    normalizedKeywords === verb // Verifica se é apenas o verbo
   );
 
   // Se for uma instrução, extraímos os conceitos principais
@@ -87,16 +108,32 @@ function correctKeywords(keywords: string): string {
     for (const verb of instructionalVerbs) {
       if (normalizedKeywords.startsWith(verb + " ")) {
         normalizedKeywords = normalizedKeywords.slice(verb.length).trim();
-        break;
+        break; // Só remove o primeiro encontrado
+      }
+      if (normalizedKeywords === verb) {
+          normalizedKeywords = ''; // Se for só o verbo, limpa
+          break;
       }
     }
 
-    // Remove palavras comuns que não agregam valor ao prompt
-    const fillerWords = ["um", "uma", "para", "que", "me", "a", "o", "as", "os", "de", "da", "do", "das", "dos"];
+    // Remove palavras comuns que não agregam valor ao prompt (expandida)
+    const fillerWords = [
+        "um", "uma", "uns", "umas",
+        "para", "que", "me", "mim", "lhe", "ele", "ela", "eles", "elas",
+        "a", "o", "as", "os",
+        "de", "da", "do", "das", "dos",
+        "em", "no", "na", "nos", "nas",
+        "com", "por", "sobre", "acerca", "tipo", "estilo",
+        "por favor", "gentilmente", "agora", "então",
+        "quero que", "gostaria de", "preciso de", "me faça", "me crie"
+        ];
     for (const word of fillerWords) {
-      const regex = new RegExp(`\\b${word}\\b`, 'g');
-      normalizedKeywords = normalizedKeywords.replace(regex, '');
+      const regex = new RegExp(`^${word}\b\s*|\s*\b${word}\b`, 'gi'); // Remove no início ou com espaço antes
+      normalizedKeywords = normalizedKeywords.replace(regex, ' ').trim();
     }
+
+    // Remove pontuação comum no início/fim que pode sobrar
+    normalizedKeywords = normalizedKeywords.replace(/^[.,!?;:]+|[.,!?;:]+$/g, '').trim();
 
     // Remove espaços duplos
     normalizedKeywords = normalizedKeywords.replace(/\s+/g, ' ').trim();
@@ -105,9 +142,19 @@ function correctKeywords(keywords: string): string {
   }
 
   // Corrige palavras-chave conhecidas com erros de digitação
+  // Aplica primeiro as correções de palavras compostas para evitar separação
   for (const [incorrect, correct] of Object.entries(keywordCorrections)) {
-    const regex = new RegExp(`\\b${incorrect}\\b`, 'gi');
-    normalizedKeywords = normalizedKeywords.replace(regex, correct);
+    if (incorrect.includes(' ')) { // Aplica primeiro as correções de termos compostos
+        const regex = new RegExp(`\b${incorrect}\b`, 'gi');
+        normalizedKeywords = normalizedKeywords.replace(regex, correct);
+    }
+  }
+  // Aplica correções de palavras simples
+  for (const [incorrect, correct] of Object.entries(keywordCorrections)) {
+     if (!incorrect.includes(' ')) {
+        const regex = new RegExp(`\b${incorrect}\b`, 'gi');
+        normalizedKeywords = normalizedKeywords.replace(regex, correct);
+    }
   }
 
   return normalizedKeywords;
@@ -119,7 +166,7 @@ function correctKeywords(keywords: string): string {
  * @returns Prompt gerado como fallback
  */
 function generateFallbackPrompt(params: PromptParams): string {
-  const { keywords, tone, complexity, includeExamples, mode, imageStyle } = params;
+  const { keywords, tone, complexity, includeExamples, mode, imageStyle, negativePrompt } = params;
 
   // Mapeia enums para strings mais descritivas
   const toneMap: Record<string, string> = {
@@ -165,6 +212,11 @@ function generateFallbackPrompt(params: PromptParams): string {
       case "image_generation":
         basePrompt += ` O prompt deve descrever detalhadamente a imagem a ser criada, incluindo estilo visual, elementos principais, composição, cores, iluminação e atmosfera.`;
         
+        // Adicionar prompt negativo se fornecido
+        if (negativePrompt) {
+          basePrompt += ` Elementos a evitar (prompt negativo): ${negativePrompt}.`;
+        }
+
         // Adicionar diretrizes específicas baseadas no estilo de imagem selecionado
         if (imageStyle) {
           switch(imageStyle) {
@@ -352,6 +404,8 @@ export async function POST(req: Request) {
       includeExamples: body.includeExamples !== undefined ? body.includeExamples : true,
       imageStyle: body.imageStyle,
       language: body.language || 'portuguese',
+      negativePrompt: body.negativePrompt,
+      modelId: body.modelId || DEFAULT_MODEL_ID,
     };
 
     // Log dos parâmetros recebidos para debug
@@ -415,7 +469,7 @@ export async function POST(req: Request) {
  * Função que efetivamente faz a chamada para a API do Gemini
  */
 async function generatePromptWithGemini(params: PromptParams) {
-  const model = genAI.getGenerativeModel({ model: modelId });
+  const model = genAI.getGenerativeModel({ model: params.modelId || DEFAULT_MODEL_ID });
 
     // --- INÍCIO DAS ALTERAÇÕES NOS PROMPTS ---
 
@@ -529,6 +583,13 @@ Adapte TODOS os aspectos visuais para acomodar este estilo.
 Inclua referências explícitas ao estilo ${params.imageStyle.toUpperCase()} em diferentes partes do prompt.`;
     }
 
+    // Adiciona menção ao prompt negativo no system prompt se ele for usado
+    if (params.mode === 'image_generation' && params.negativePrompt) {
+       systemPrompt += params.language === "english"
+        ? `\nAlso consider the negative prompt provided by the user, specifying elements or styles to AVOID.`
+        : `\nConsidere também o prompt negativo fornecido pelo usuário, especificando elementos ou estilos a EVITAR.`;
+    }
+
     // Novo User Prompt focado na ideia central com restrição de tamanho
     let userPrompt = params.language === "english"
       ? `Generate a ${params.length === 'short' ? 'very concise' : 'detailed'} response for the following request, in "${modeMap[params.mode] || 'general'}" mode: "${params.keywords}".
@@ -550,7 +611,7 @@ ${params.includeExamples ? `- Inclua exemplos ou elaborações relevantes dentro
 - Utilize formatação Markdown completa para melhorar a legibilidade da resposta.
 ${params.length === 'short' ? '- LIMITE ESTRITO DE TAMANHO: Máximo de 6 linhas no total, incluindo qualquer formatação markdown ou quebras de linha.' : ''}`;
 
-    // Adiciona instruções específicas para o modo de geração de imagem
+    // Adiciona instruções específicas para o modo de geração de imagem, incluindo o negative prompt
     if (params.mode === 'image_generation' && params.imageStyle) {
       userPrompt += params.language === "english"
         ? `\n\nThis request is for an IMAGE GENERATION prompt in ${params.imageStyle.toUpperCase()} style.
@@ -561,6 +622,12 @@ Adapt composition, lighting, textures and other visual aspects to maximize the c
 REQUISITO ABSOLUTO: A imagem deve ser ${imageStyleDefinitions[params.imageStyle]}
 A descrição da imagem deve incorporar explicitamente esse estilo visual em todos os elementos.
 Adapte a composição, iluminação, texturas e outros aspectos visuais para maximizar as características do estilo ${params.imageStyle.toUpperCase()}.`;
+    }
+    // Adiciona o prompt negativo ao user prompt se fornecido
+    if (params.mode === 'image_generation' && params.negativePrompt) {
+        userPrompt += params.language === "english"
+        ? `\n\nNEGATIVE PROMPT (Elements to AVOID): ${params.negativePrompt}`
+        : `\n\nPROMPT NEGATIVO (Elementos a EVITAR): ${params.negativePrompt}`;
     }
 
     // --- FIM DAS ALTERAÇÕES NOS PROMPTS ---

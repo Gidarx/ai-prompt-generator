@@ -1,3 +1,4 @@
+// @ts-ignore: tipagens do SDK genérico de Google AI
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 import { NextResponse } from 'next/server';
 
@@ -14,8 +15,9 @@ type AssistantRequestBody = {
   // TODO: Adicionar currentParams?: PromptParams se quisermos que o assistente analise o formulário
 };
 
-// Configuração do Gemini (Reutilizar chave)
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || "");
+// Configuração do Gemini (Reutilizar chave, considerando ambos os nomes de variável)
+const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+const genAI = new GoogleGenerativeAI(apiKey);
 const modelId = "gemini-2.0-flash-thinking-exp-01-21"; // Ou outro modelo adequado para chat
 
 // Configurações de Geração e Segurança (Ajustar conforme necessário)

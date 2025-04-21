@@ -26,7 +26,8 @@ import { usePromptHistory } from "@/lib/hooks/use-prompt-history"
 import { useUserPreferences } from "@/lib/hooks/use-user-preferences"
 import { usePromptVersions } from "@/lib/hooks/use-prompt-versions"
 import { useAIAssistant } from "@/lib/hooks/use-ai-assistant"
-import { Complexity, Platform, Tone, Length, PromptParams, GeneratedPrompt, PromptMode, PromptTemplate, Language } from "@/lib/types"
+import { SimplePromptTemplate } from "@/lib/promptTemplates"
+import { Complexity, Platform, Tone, Length, PromptParams, GeneratedPrompt, PromptMode, Language } from "@/lib/types"
 import {
   Loader2,
   Sparkles,
@@ -45,6 +46,9 @@ import {
   Library,
   Zap,
   GitBranch,
+  FileText,
+  Wand2,
+  Lightbulb,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -59,49 +63,51 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { cn } from "@/lib/utils"
+import { Label } from "@/components/ui/label"
 
+// Definir o tipo dos parâmetros parseados esperados da API
+interface ParsedParams {
+  keywords?: string;
+  mode?: PromptMode;
+  tone?: Tone;
+  complexity?: Complexity;
+  imageStyle?: string;
+}
+
+// Manter schema sem complexity
 const formSchema = z.object({
-  keywords: z.string().min(1, { message: "Palavras-chave são obrigatórias." }),
+  keywords: z.string().min(1, { message: "Palavras-chave são obrigatórias." }).optional(), 
   context: z.string().optional(),
-  tone: z.nativeEnum(Tone), // Tone é um enum real, z.nativeEnum está correto
-  length: z.enum(["short", "medium", "long"]),
-  complexity: z.number().min(0).max(100), // Manter como número para o slider
+  tone: z.nativeEnum(Tone),
+  length: z.enum(["short", "medium", "long"]).optional(),
   includeExamples: z.boolean(),
-  // PromptMode é um type alias de strings literais, usar z.enum
   mode: z.enum([
-    "app_creation",
-    "image_generation",
-    "content_creation",
-    "problem_solving",
-    "coding",
-    "instruct",
-    "explain",
+    "app_creation", "image_generation", "content_creation", 
+    "problem_solving", "coding", "instruct", "explain",
   ]),
-  // Campo opcional para estilo de imagem
   imageStyle: z.string().optional(),
+  negativePrompt: z.string().optional(),
+  modelId: z.string().optional(),
 })
 
-type FormValues = z.infer<typeof formSchema>
+// Definir FormValues explicitamente SEM complexity
+type FormValues = {
+  keywords?: string;
+  context?: string;
+  tone: Tone;
+  length?: "short" | "medium" | "long";
+  includeExamples: boolean;
+  mode: "app_creation" | "image_generation" | "content_creation" | "problem_solving" | "coding" | "instruct" | "explain";
+  imageStyle?: string;
+  negativePrompt?: string;
+  modelId?: string;
+};
 
-// Função para mapear número (0-100) para o enum Complexity
+// Adicionar mapNumberToComplexity de volta
 const mapNumberToComplexity = (value: number): Complexity => {
   if (value < 34) return Complexity.SIMPLE;
   if (value < 67) return Complexity.MODERATE;
   return Complexity.DETAILED;
-};
-
-// Função para mapear o enum Complexity para número (0-100)
-const mapComplexityToNumber = (complexity: Complexity): number => {
-  switch (complexity) {
-    case Complexity.SIMPLE: return 25; // Valor representativo
-    case Complexity.MODERATE: return 50;
-    case Complexity.DETAILED: return 75;
-    // Adicionar casos para os outros valores do enum se necessário
-    case Complexity.BEGINNER: return 25;
-    case Complexity.INTERMEDIATE: return 50;
-    case Complexity.ADVANCED: return 75;
-    default: return 50; // Default para moderado
-  }
 };
 
 // Lista de estilos de imagem disponíveis
@@ -127,58 +133,140 @@ const imageStyles = [
   { value: "midjourney_style", label: "Estilo Midjourney" },
 ];
 
+// --- Lista de Modelos Gemini Disponíveis (Adicionando modelos 2.5) --- 
+const geminiModels = [
+  { value: "gemini-2.0-flash-thinking-exp-01-21", label: "Gemini 2.0 Flash Exp (Padrão)" },
+  // Modelos 2.5 solicitados (VERIFICAR VALIDADE NA API)
+  { value: "gemini-2.5-flash-preview-04-17", label: "Gemini 2.5 Flash Preview (04-17)" }, 
+  { value: "gemini-2.5-pro-preview-03-25", label: "Gemini 2.5 Pro Preview (03-25)" },
+  // Outros modelos existentes
+  { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" }, 
+  { value: "gemini-1.5-pro-preview-0409", label: "Gemini 1.5 Pro Preview (0409)" }, 
+  { value: "gemini-1.0-pro", label: "Gemini 1.0 Pro" }, 
+  { value: "gemini-1.5-flash-preview-0514", label: "Gemini 1.5 Flash Preview (0514)" }, 
+  { value: "gemini-pro", label: "Gemini Pro (gen 1 via API v1)" }, 
+];
+
+// Mapeamento para rótulos amigáveis de Complexidade
+const complexityLabels: Record<Complexity, string> = {
+  [Complexity.SIMPLE]: "Simples",
+  [Complexity.MODERATE]: "Moderado",
+  [Complexity.DETAILED]: "Detalhado",
+  // Adicionar mapeamentos para os outros se forem usados/necessários
+  [Complexity.BEGINNER]: "Iniciante",
+  [Complexity.INTERMEDIATE]: "Intermediário",
+  [Complexity.ADVANCED]: "Avançado",
+};
+
 export function PromptEngineer() {
   const { toast } = useToast()
   const { preferences, isLoaded: preferencesLoaded, updatePreferences } = useUserPreferences()
-  const { history, isLoading, generatePrompt } = usePromptHistory()
+  const { history, isLoading: historyIsLoading, generatePrompt } = usePromptHistory()
   const { addVersion } = usePromptVersions()
-  const { toggleAssistant } = useAIAssistant() // Removido onApplySuggestion e getCurrentParams daqui
+  const { toggleAssistant } = useAIAssistant()
 
   const [showHistory, setShowHistory] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showVersionHistory, setShowVersionHistory] = useState(false)
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
-  const [showTemplates, setShowTemplates] = useState(false)
+  const [showTemplatesDialog, setShowTemplatesDialog] = useState(false)
   const [versionNotes, setVersionNotes] = useState("")
   const [showVersionNotes, setShowVersionNotes] = useState(false)
   const [activeTab, setActiveTab] = useState("editor")
   const [generatedPrompt, setGeneratedPrompt] = useState<GeneratedPrompt | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const [templates, setTemplates] = useState<SimplePromptTemplate[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(false)
+  const [templatesError, setTemplatesError] = useState<string | null>(null)
 
   const generateButtonRef = useRef<HTMLButtonElement>(null)
   const historyButtonRef = useRef<HTMLButtonElement>(null)
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
 
+  // --- Novos Estados para Refinamento --- 
+  const [isRefining, setIsRefining] = useState(false);
+  const [modificationRequest, setModificationRequest] = useState("");
+
+  // --- Novo Estado para Sugestão de Tópico --- 
+  const [isSuggestingTopic, setIsSuggestingTopic] = useState(false);
+
+  // --- Adicionar estado useState para Complexity --- 
+  const [selectedComplexity, setSelectedComplexity] = useState<Complexity>(Complexity.MODERATE);
+
+  // --- Novo Estado para Lista de Sugestões de Tópico --- 
+  const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
+
+  // --- Novo Estado para Interpretação --- 
+  const [isParsingInstruction, setIsParsingInstruction] = useState(false);
+
+  // --- State for Suggestions Dialog ---
+  const [showSuggestionsDialog, setShowSuggestionsDialog] = useState(false)
+
+  // Usar o tipo FormValues explícito
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema), // Schema ainda é usado para validação
     defaultValues: {
       keywords: "",
       context: "",
-      tone: Tone.PROFESSIONAL,
-      length: "medium",
-      complexity: 50,
-      includeExamples: true,
+      tone: preferences.defaultTone || Tone.PROFESSIONAL,
+      length: preferences.defaultLength || "medium",
+      includeExamples: preferences.defaultIncludeExamples !== undefined ? preferences.defaultIncludeExamples : true,
       mode: "content_creation",
       imageStyle: "realistic",
+      negativePrompt: "",
+      modelId: undefined,
     },
   })
 
+  // Corrigir useEffect de preferências
   useEffect(() => {
     if (preferencesLoaded) {
-      const currentValues = form.getValues();
+      // Garantir que defaultComplexity é tratado como número
+      const defaultComplexityValue = typeof preferences.defaultComplexity === 'number' 
+        ? preferences.defaultComplexity 
+        : 50; // Usar 50 como fallback se não for número
+      setSelectedComplexity(mapNumberToComplexity(defaultComplexityValue));
+      
+      // Resetar form SEM complexity
       form.reset({
-        ...currentValues,
-        tone: preferences.defaultTone,
-        length: preferences.defaultLength,
-        complexity: preferences.defaultComplexity,
-        includeExamples: preferences.defaultIncludeExamples,
-        mode: currentValues.mode,
-        imageStyle: currentValues.imageStyle,
-      })
+        keywords: form.getValues("keywords") || "",
+        context: form.getValues("context") || "",
+        tone: preferences.defaultTone || form.getValues("tone"),
+        length: preferences.defaultLength || form.getValues("length"),
+        includeExamples: preferences.defaultIncludeExamples !== undefined ? preferences.defaultIncludeExamples : form.getValues("includeExamples"),
+        mode: form.getValues("mode"),
+        imageStyle: form.getValues("imageStyle"),
+        negativePrompt: form.getValues("negativePrompt"),
+        modelId: form.getValues("modelId"),
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preferencesLoaded, preferences])
+  }, [preferencesLoaded, preferences]); // Remover form das dependências se causar loops
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      setTemplatesLoading(true)
+      setTemplatesError(null)
+      try {
+        const response = await fetch("/api/templates")
+        if (!response.ok) {
+          throw new Error(`Erro ${response.status}: Falha ao buscar templates`)
+        }
+        const data: SimplePromptTemplate[] = await response.json()
+        setTemplates(data)
+      } catch (err: any) {
+        console.error("Erro ao buscar templates:", err)
+        setTemplatesError(err.message)
+      } finally {
+        setTemplatesLoading(false)
+      }
+    }
+
+    fetchTemplates()
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -203,69 +291,103 @@ export function PromptEngineer() {
     }
   }, [generatedPrompt])
 
+  // Efeito para limpar isRefining se o prompt gerado mudar (ex: ao carregar do histórico)
+  useEffect(() => {
+    setIsRefining(false);
+    setModificationRequest("");
+  }, [generatedPrompt?.id]); // Depende do ID do prompt gerado
+
   const onSubmit = async (values: FormValues) => {
-    setError(null);
-    setCopied(false);
+    setIsLoading(true)
+    setError(null)
+    setCopied(false)
+    if (!isRefining) {
+      setGeneratedPrompt(null)
+    }
+
+    let params: PromptParams;
+    if (isRefining && generatedPrompt?.genericPrompt && modificationRequest) {
+      // --- Modo Refinamento ---
+      console.log("Refinando prompt...");
+      params = {
+        ...(generatedPrompt.params),
+        keywords: undefined, 
+        previousPrompt: generatedPrompt.genericPrompt,
+        modificationRequest: modificationRequest,
+        tone: values.tone, 
+        complexity: selectedComplexity,
+        length: values.length,
+        mode: values.mode as PromptMode,
+        language: preferences.language, 
+        includeExamples: values.includeExamples,
+        ...(values.mode === "image_generation" && values.imageStyle && { imageStyle: values.imageStyle }),
+        ...(values.mode === "image_generation" && values.negativePrompt && { negativePrompt: values.negativePrompt.trim() }),
+        ...(values.modelId && { modelId: values.modelId.trim() }),
+      };
+    } else {
+       // --- Modo Geração Normal --- 
+       let processedKeywords = values.keywords?.trim() || "";
+       if (!processedKeywords) {
+         setError("Por favor, insira palavras-chave ou selecione um template.");
+         setIsLoading(false);
+         return; 
+       }
+       
+       params = {
+         keywords: processedKeywords,
+         context: values.context,
+         tone: values.tone,
+         length: values.length,
+         complexity: selectedComplexity,
+         mode: values.mode as PromptMode,
+         includeExamples: values.includeExamples,
+         language: preferences.language,
+         ...(values.mode === "image_generation" && values.imageStyle && { imageStyle: values.imageStyle }),
+         ...(values.mode === "image_generation" && values.negativePrompt && { negativePrompt: values.negativePrompt.trim() }),
+         ...(values.modelId && { modelId: values.modelId.trim() }),
+       };
+    }
+
+    console.log("Enviando para API com parâmetros:", params);
 
     try {
-      let processedKeywords = values.keywords.trim();
-      if (/^(faça|crie|desenvolva|elabore|monte|construa)/i.test(processedKeywords)) {
-        processedKeywords = processedKeywords
-          .replace(/^faça\s+(um|uma)\s+/i, '')
-          .replace(/^crie\s+(um|uma)\s+/i, '')
-          .replace(/^desenvolva\s+(um|uma)\s+/i, '')
-          .replace(/^elabore\s+(um|uma)\s+/i, '')
-          .replace(/^monte\s+(um|uma)\s+/i, '')
-          .replace(/^construa\s+(um|uma)\s+/i, '')
-          .replace(/para\s+/i, '');
-        console.log("Palavras-chave convertidas de instrução para substantivos:", processedKeywords);
-      }
-
-      const params: PromptParams = {
-        keywords: processedKeywords,
-        context: values.context,
-        tone: values.tone,
-        length: values.length,
-        complexity: mapNumberToComplexity(values.complexity),
-        mode: values.mode as PromptMode,
-        includeExamples: values.includeExamples,
-        language: preferences.language,
-        // Adicionar estilo de imagem aos parâmetros quando aplicável
-        ...(values.mode === "image_generation" && values.imageStyle && { imageStyle: values.imageStyle }),
-      };
-
-      console.log("Enviando para geração com parâmetros:", params);
-
       toast({
-        title: "Gerando prompt...",
+        title: isRefining ? "Refinando prompt..." : "Gerando prompt...",
         description: `Processando modo: ${getModeLabel(values.mode)}`,
       });
 
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Tempo esgotado. O servidor demorou muito para responder.")), 20000);
+      const timeoutPromise = new Promise<GeneratedPrompt>((_, reject) => {
+        setTimeout(() => reject(new Error("Tempo esgotado. O servidor demorou muito para responder.")), 60000);
       });
 
+      // A função generatePrompt do hook precisa ser capaz de lidar com os novos parâmetros
       const result = await Promise.race([
         generatePrompt(params),
         timeoutPromise
       ]) as GeneratedPrompt;
 
-      setShowVersionNotes(true);
-      setGeneratedPrompt(result);
+      console.log("Resultado recebido:", result);
 
-      toast({
-        title: "Prompt gerado com sucesso",
-        description: "Seu prompt foi criado de acordo com os parâmetros fornecidos",
-      });
-    } catch (error: any) {
-      console.error("Erro ao gerar prompt:", error);
-      setError(error?.message || "Ocorreu um erro. Verifique o console ou tente novamente.");
+      if (result && result.genericPrompt) {
+        setGeneratedPrompt(result); // Atualiza com o novo prompt (gerado ou refinado)
+        setActiveTab("preview");
+        // Limpar estado de refinamento após sucesso
+        setIsRefining(false); 
+        setModificationRequest(""); 
+      } else {
+        throw new Error("Resposta da API inválida ou vazia.");
+      }
 
+    } catch (err: any) {
+      console.error("Erro na geração:", err);
+      setError(err.message);
       toast({
-        title: "Erro na geração",
-        description: error?.message || "Não foi possível gerar o prompt. Tente novamente com palavras-chave diferentes.",
         variant: "destructive",
-      });
+        title: "Erro ao gerar prompt",
+        description: err.message || "Ocorreu um erro inesperado.",
+      })
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -283,7 +405,7 @@ export function PromptEngineer() {
   }
 
   const handleSaveVersion = () => {
-    if (!generatedPrompt) return; // Precisa de um prompt gerado para salvar a versão
+    if (!generatedPrompt) return;
     addVersion(generatedPrompt, versionNotes)
     setVersionNotes("")
     setShowVersionNotes(false)
@@ -347,19 +469,19 @@ export function PromptEngineer() {
   }
 
   const handleSelectVersion = (promptParams: PromptParams) => {
-    console.log("Versão selecionada:", promptParams);
+    setSelectedComplexity(promptParams.complexity);
     form.reset({
       keywords: promptParams.keywords,
       context: promptParams.context ?? "",
       tone: promptParams.tone,
       length: promptParams.length,
-      complexity: mapComplexityToNumber(promptParams.complexity),
       includeExamples: promptParams.includeExamples,
       mode: promptParams.mode,
       imageStyle: promptParams.imageStyle,
+      negativePrompt: promptParams.negativePrompt,
+      modelId: promptParams.modelId,
     });
     
-    // Se a versão tiver idioma definido, atualiza as preferências do usuário
     if (promptParams.language) {
       updatePreferences({ language: promptParams.language });
     }
@@ -368,22 +490,31 @@ export function PromptEngineer() {
     toast({ title: "Versão carregada", description: "Parâmetros da versão selecionada foram carregados." });
   }
 
-  const handleSelectTemplate = (template: PromptTemplate) => {
-    form.reset({
-      ...form.getValues(),
-      keywords: template.keywords,
-      context: template.context,
-      tone: template.tone,
-      length: template.length,
-      complexity: template.complexity,
-      includeExamples: template.includeExamples,
-      imageStyle: template.imageStyle,
-    });
-    setShowTemplates(false);
+  const handleSelectTemplate = (template: SimplePromptTemplate) => {
+    console.log("Template selecionado:", template);
+    form.setValue("keywords", template.defaultKeywords || "");
+    form.setValue("mode", template.mode);
+    if (template.defaultTone) {
+      form.setValue("tone", template.defaultTone);
+    }
+    if (template.mode === "image_generation" && template.imageStyle) {
+      form.setValue("imageStyle", template.imageStyle);
+    } else if (template.mode !== "image_generation") {
+      form.setValue("imageStyle", undefined);
+    }
+    if (template.defaultComplexity) {
+       setSelectedComplexity(template.defaultComplexity);
+    }
+    form.setValue("context", "");
+    
+    setShowTemplatesDialog(false);
+    setGeneratedPrompt(null);
+    setActiveTab("editor");
+    
     toast({
-      title: "Template aplicado",
-      description: `O template "${template.title}" foi carregado no formulário.`,
-    });
+      title: "Template aplicado!",
+      description: `"${template.name}" carregado no editor.`,
+    })
   };
 
   const handleSavePromptEdit = (newPromptText: string) => {
@@ -411,18 +542,18 @@ export function PromptEngineer() {
   };
 
   const handleSelectHistoryItem = (item: GeneratedPrompt) => {
-    console.log("Item selecionado:", item);
+    setSelectedComplexity(item.params.complexity);
     form.reset({
       keywords: item.params.keywords,
       context: item.params.context ?? "",
       tone: item.params.tone,
       length: item.params.length,
-      complexity: mapComplexityToNumber(item.params.complexity),
       includeExamples: item.params.includeExamples,
       mode: item.params.mode,
       imageStyle: item.params.imageStyle,
+      negativePrompt: item.params.negativePrompt,
+      modelId: item.params.modelId,
     });
-    // Se o item do histórico tiver idioma definido, atualiza as preferências
     if (item.params.language) {
       updatePreferences({ language: item.params.language });
     }
@@ -431,83 +562,68 @@ export function PromptEngineer() {
     toast({ title: "Prompt carregado", description: "O prompt selecionado foi carregado do histórico." });
   }
 
-  // Função para gerar um tema aleatório
-  const suggestPromptTopic = () => {
-    // Lista de temas interessantes para diferentes modos
-    const topicSuggestions = {
-      app_creation: [
-        "app de meditação com gamificação",
-        "gerenciador de finanças pessoais com IA",
-        "rede social para amantes de plantas",
-        "app de troca de habilidades entre profissionais",
-        "organizador de tarefas baseado no método pomodoro",
-        "plataforma de ensino de idiomas com realidade aumentada"
-      ],
-      image_generation: [
-        "paisagem futurista de cidade flutuante nas nuvens",
-        "retrato de personagem fantástico em estilo anime",
-        "cena cyberpunk com neon e chuva",
-        "animal mitológico em habitat natural",
-        "interpretação surrealista de sonho",
-        "interior minimalista com elementos naturais"
-      ],
-      content_creation: [
-        "guia para começar um podcast de sucesso",
-        "técnicas de escrita criativa para iniciantes",
-        "dicas de marketing digital para pequenos negócios",
-        "como criar conteúdo viral no TikTok",
-        "estratégias de storytelling para marcas",
-        "roteiro para vídeos educacionais"
-      ],
-      problem_solving: [
-        "otimizar processos de atendimento ao cliente",
-        "reduzir o desperdício de alimentos em restaurantes",
-        "melhorar engajamento de funcionários remotos",
-        "estratégias para redução de ansiedade no ambiente corporativo",
-        "aumentar taxa de conversão em e-commerce",
-        "implementar sistema de logística reversa"
-      ],
-      coding: [
-        "sistema de recomendação com machine learning",
-        "aplicação web com NextJS e Supabase",
-        "automação de tarefas com Python",
-        "API RESTful com autenticação e autorização",
-        "aplicativo mobile cross-platform com React Native",
-        "dashboard interativo com visualização de dados"
-      ],
-      instruct: [
-        "configurar ambiente de desenvolvimento para React",
-        "criar rotina de exercícios em casa sem equipamentos",
-        "montar um estúdio caseiro para gravações",
-        "implementar sistema de gestão ágil em equipes",
-        "fazer pão artesanal perfeito",
-        "técnicas avançadas de fotografia com smartphone"
-      ],
-      explain: [
-        "como funciona a tecnologia blockchain",
-        "o impacto da inteligência artificial na medicina",
-        "princípios básicos de design de UX/UI",
-        "como funciona o algoritmo do TikTok",
-        "conceitos fundamentais de finanças para não-financeiros",
-        "o processo de desenvolvimento de vacinas"
-      ]
-    };
-
-    // Obter o modo atual
+  // --- Modificar suggestPromptTopic para enviar contexto e receber lista --- 
+  const suggestPromptTopic = async () => {
+    setIsSuggestingTopic(true);
+    setTopicSuggestions([]); // Limpar sugestões anteriores
     const currentMode = form.getValues("mode") as PromptMode;
+    const currentLanguage = preferences.language;
+    const currentKeywords = form.getValues("keywords"); // Pegar keywords atuais
+    const currentContext = form.getValues("context"); // Pegar contexto atual
     
-    // Selecionar um tema aleatório para o modo atual
-    const topicsForMode = topicSuggestions[currentMode] || topicSuggestions.content_creation;
-    const randomTopic = topicsForMode[Math.floor(Math.random() * topicsForMode.length)];
+    console.log(`Requesting topic suggestion for mode: ${currentMode}, lang: ${currentLanguage}, keywords: ${currentKeywords}`);
     
-    // Atualizar o campo de palavras-chave
-    form.setValue("keywords", randomTopic);
-    
-    toast({
-      title: "Tema sugerido pela IA",
-      description: `Um tema para "${getModeLabel(currentMode)}" foi gerado.`,
-    });
+    try {
+      const response = await fetch("/api/suggest-topic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+           mode: currentMode, 
+           language: currentLanguage, 
+           keywords: currentKeywords, // Enviar keywords
+           context: currentContext // Enviar contexto
+         }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Erro ${response.status}`);
+      }
+
+      const data = await response.json();
+      const suggestedTopics: string[] = data.topics; // Esperar um array
+
+      if (suggestedTopics && Array.isArray(suggestedTopics) && suggestedTopics.length > 0) {
+        setTopicSuggestions(suggestedTopics); // Armazenar a lista
+        setShowSuggestionsDialog(true); // Abrir o dialog aqui
+        toast({
+          title: "Sugestões de Tópico Geradas!",
+          description: `Clique em uma sugestão para usá-la.`,
+        });
+      } else {
+         // Se não vier sugestões, talvez apenas mostrar um toast?
+         console.warn("API did not return valid suggestions.");
+         toast({
+            variant: "default", // Usar default ou warning
+            title: "Nenhuma sugestão específica",
+            description: "Não foi possível gerar sugestões no momento.",
+          });
+         // Não lançar erro aqui necessariamente, apenas não mostrar sugestões
+         // throw new Error("Resposta da API de sugestão inválida.") 
+      }
+
+    } catch (err: any) {
+       // ... (tratamento de erro existente) ...
+    } finally {
+      setIsSuggestingTopic(false);
+    }
   }
+
+  // Função para aplicar uma sugestão de tópico selecionada
+  const applyTopicSuggestion = (topic: string) => {
+    form.setValue("keywords", topic);
+    setShowSuggestionsDialog(false); // Fechar o dialog aqui
+  };
 
   const copyToClipboard = () => {
     if (!generatedPrompt) return;
@@ -530,8 +646,87 @@ export function PromptEngineer() {
       });
   }
 
+  // --- Nova Função para Interpretar Instrução --- 
+  const handleParseInstruction = async () => {
+    const instruction = form.getValues("keywords"); // Usar o texto atual de keywords como instrução
+    if (!instruction || instruction.trim().length < 10) { // Requer instrução um pouco mais longa
+      toast({
+        variant: "destructive",
+        title: "Instrução muito curta",
+        description: "Digite uma frase mais completa para a IA interpretar.",
+      });
+      return;
+    }
+
+    setIsParsingInstruction(true);
+    const currentLanguage = preferences.language;
+    console.log(`Requesting instruction parsing for: "${instruction}"`);
+
+    try {
+      const response = await fetch("/api/parse-instruction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instruction: instruction, language: currentLanguage }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Erro ${response.status}`);
+      }
+
+      const parsedParams: ParsedParams = await response.json();
+      console.log("Received parsed params:", parsedParams);
+
+      // Atualizar o formulário com os parâmetros recebidos
+      let updatedFields = 0;
+      if (parsedParams.keywords) {
+        form.setValue("keywords", parsedParams.keywords);
+        updatedFields++;
+      }
+      if (parsedParams.mode) {
+        form.setValue("mode", parsedParams.mode);
+        updatedFields++;
+      }
+      if (parsedParams.tone) {
+        form.setValue("tone", parsedParams.tone);
+        updatedFields++;
+      }
+      if (parsedParams.complexity) {
+        setSelectedComplexity(parsedParams.complexity); // Atualizar estado de complexity
+        updatedFields++;
+      }
+      if (parsedParams.imageStyle && parsedParams.mode === "image_generation") {
+        form.setValue("imageStyle", parsedParams.imageStyle);
+        updatedFields++;
+      }
+
+      if (updatedFields > 0) {
+         toast({
+          title: "Instrução Interpretada!",
+          description: `Campos do formulário foram atualizados com base na sua instrução.`,
+        });
+      } else {
+          toast({
+            variant: "default",
+            title: "Interpretação Concluída",
+            description: "Não foram encontrados parâmetros claros para atualizar automaticamente.",
+          });
+      }
+
+    } catch (err: any) {
+      console.error("Erro ao interpretar instrução:", err);
+      toast({
+        variant: "destructive",
+        title: "Erro na Interpretação",
+        description: err.message || "Não foi possível interpretar a instrução.",
+      });
+    } finally {
+      setIsParsingInstruction(false);
+    }
+  };
+
   return (
-          <TooltipProvider>
+    <TooltipProvider>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative">
         <Card className="lg:col-span-1 h-fit sticky top-24" elevated hover>
           <CardHeader className="pb-2 space-y-4">
@@ -545,72 +740,91 @@ export function PromptEngineer() {
                 </CardTitle>
               </div>
               <div className="flex items-center gap-1.5">
-                <Dialog open={showTemplates} onOpenChange={setShowTemplates}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="icon-sm" className="rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary">
-                          <Library className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>Usar Template</TooltipContent>
-                  </Tooltip>
+                <Dialog open={showTemplatesDialog} onOpenChange={setShowTemplatesDialog}>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DialogTrigger asChild>
+                          <Button size="icon-sm" className="rounded-full aspect-square bg-primary/5 border border-primary/15 shadow-sm hover:shadow-md hover:border-primary/30 hover:bg-primary/10 transition-all">
+                            <Library className="h-4 w-4 text-primary/80" />
+                            <span className="sr-only">Templates</span>
+                          </Button>
+                        </DialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Usar Template</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <DialogContent className="max-w-3xl p-0">
-                    <PromptTemplates onSelectTemplate={handleSelectTemplate} />
+                    <DialogHeader className="p-6 pb-4">
+                      <DialogTitle>Selecionar Template</DialogTitle>
+                    </DialogHeader>
+                    <div className="p-6 pt-0">
+                      {templatesLoading ? (
+                        <div className="flex justify-center items-center h-[400px]">
+                           <Loader2 className="h-8 w-8 animate-spin text-primary" /> 
+                        </div>
+                      ) : templatesError ? (
+                        <p className="text-red-500 text-center py-4">Erro ao carregar templates: {templatesError}</p>
+                      ) : templates.length > 0 ? (
+                        <PromptTemplates 
+                          templates={templates}
+                          onSelectTemplate={handleSelectTemplate}
+                        />
+                      ) : (
+                        <p className="text-center text-muted-foreground py-4">Nenhum template encontrado.</p>
+                      )}
+                    </div>
                   </DialogContent>
                 </Dialog>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon-sm" 
-                      className={cn(
-                        "rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary",
-                        showHistory && "bg-primary/20 text-primary"
-                      )}
-                      onClick={() => setShowHistory(!showHistory)} 
-                      ref={historyButtonRef}
-                    >
-                      <History className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Histórico (Ctrl+H)</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                     <Button 
-                       variant="outline" 
-                       size="icon-sm" 
-                       className="rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary"
-                       onClick={() => setShowSettings(true)} 
-                       ref={settingsButtonRef}
-                     >
-                       <Settings className="h-4 w-4" />
-                     </Button>
-                  </TooltipTrigger>
-                   <TooltipContent>Configurações (Ctrl+S)</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="icon-sm" 
-                        className="rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary"
-                        onClick={toggleAssistant}
-                      >
-                        <Bot className="h-4 w-4" />
+                <Dialog open={showHistory} onOpenChange={setShowHistory}>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DialogTrigger asChild>
+                           <Button size="icon-sm" className="rounded-full aspect-square bg-primary/5 border border-primary/15 shadow-sm hover:shadow-md hover:border-primary/30 hover:bg-primary/10 transition-all">
+                            <History className="h-4 w-4 text-primary/80" />
+                            <span className="sr-only">Histórico</span>
+                          </Button>
+                        </DialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Ver Histórico</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Dialog>
+                <Dialog open={showSettings} onOpenChange={setShowSettings}>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DialogTrigger asChild>
+                           <Button size="icon-sm" className="rounded-full aspect-square bg-primary/5 border border-primary/15 shadow-sm hover:shadow-md hover:border-primary/30 hover:bg-primary/10 transition-all">
+                            <Settings className="h-4 w-4 text-primary/80" />
+                            <span className="sr-only">Configurações</span>
+                          </Button>
+                        </DialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Configurações</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Dialog>
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                       <Button size="icon-sm" className="rounded-full aspect-square bg-primary/5 border border-primary/15 shadow-sm hover:shadow-md hover:border-primary/30 hover:bg-primary/10 transition-all" onClick={toggleAssistant}>
+                        <Bot className="h-4 w-4 text-primary/80" />
+                        <span className="sr-only">Assistente IA</span>
                       </Button>
-                  </TooltipTrigger>
-                    <TooltipContent>Assistente IA</TooltipContent>
-                </Tooltip>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Assistente IA</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
             <div className="h-px bg-gradient-to-r from-transparent via-muted-foreground/20 to-transparent" />
           </CardHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-              <CardContent className="space-y-6 pt-3">
+            <fieldset disabled={isLoading || isSuggestingTopic || isParsingInstruction} className="group">
+             <form onSubmit={form.handleSubmit(onSubmit)}>
+               <CardContent className="space-y-6 pt-3">
                  <FormField
                   control={form.control}
                   name="mode"
@@ -652,31 +866,66 @@ export function PromptEngineer() {
                         <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
                         <FormLabel className="font-medium">Palavras-chave / Tópico</FormLabel>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-start">
                         <FormControl>
-                          <Input 
-                            placeholder="Ex: marketing digital para iniciantes" 
-                            {...field} 
-                            className="bg-background border-muted-foreground/20 focus-visible:ring-primary/30"
+                          <Textarea 
+                            placeholder="Digite palavras-chave ou uma instrução completa... Ex: Crie uma imagem de um astronauta em Marte, estilo cartoon"
+                            className="bg-background border-muted-foreground/20 focus-visible:ring-primary/30 min-h-[80px] resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={isRefining || isLoading || isSuggestingTopic || isParsingInstruction}
+                            {...field}
                           />
                         </FormControl>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              onClick={suggestPromptTopic}
-                              className="shrink-0 h-10 w-10 border-primary/20 bg-primary/5 hover:bg-primary/10"
-                            >
-                              <Sparkles className="h-4 w-4 text-primary" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Sugerir tema para o prompt</TooltipContent>
-                        </Tooltip>
+                        <div className="flex flex-col gap-1.5">
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={handleParseInstruction}
+                                  className="shrink-0 h-10 w-10 rounded-lg border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 disabled:opacity-50 transition-all"
+                                  disabled={isParsingInstruction || isLoading || isRefining || !(form.watch("keywords")?.trim() ?? "").length || (form.watch("keywords")?.trim() ?? "").length < 10}
+                                >
+                                  {isParsingInstruction ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                  ) : (
+                                    <FileText className="h-4 w-4 text-primary" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Interpretar Instrução (Beta)</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={suggestPromptTopic}
+                                  className="shrink-0 h-10 w-10 rounded-lg border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 disabled:opacity-50 transition-all"
+                                  disabled={isSuggestingTopic || isLoading || isParsingInstruction || isRefining} 
+                                >
+                                  {isSuggestingTopic ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                  ) : (
+                                    <Sparkles className="h-4 w-4 text-primary" />
+                                  )} 
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Sugerir tema (via IA)</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                       </div>
                       <FormDescription className="text-xs text-muted-foreground/80">
-                        Insira as palavras-chave principais ou o tópico do prompt.
+                        {isRefining 
+                          ? "Refinando prompt anterior. Edite os parâmetros abaixo se necessário."
+                          : "Insira palavras-chave ou uma instrução completa (e clique em Interpretar)."
+                        }
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -806,6 +1055,34 @@ export function PromptEngineer() {
                   </Select>
                 </div>
 
+                {/* --- Campo Negative Prompt (condicional) --- */}
+                {form.watch("mode") === "image_generation" && (
+                  <FormField
+                    control={form.control}
+                    name="negativePrompt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center gap-2 mb-1.5">
+                           {/* Ícone opcional */}
+                           <FormLabel className="font-medium">Prompt Negativo (Opcional)</FormLabel>
+                         </div>
+                         <FormControl>
+                           <Textarea
+                             placeholder="Elementos a evitar na imagem... Ex: texto, baixa qualidade, deformado"
+                             className="resize-none bg-background border-muted-foreground/20 focus-visible:ring-primary/30"
+                             {...field}
+                             value={field.value ?? ""} // Garantir que seja string
+                           />
+                         </FormControl>
+                         <FormDescription className="text-xs text-muted-foreground/80">
+                           Descreva o que NÃO deve aparecer na imagem gerada.
+                         </FormDescription>
+                         <FormMessage />
+                       </FormItem>
+                     )}
+                   />
+                 )}
+
                 <div>
                   <Button
                     type="button"
@@ -827,32 +1104,34 @@ export function PromptEngineer() {
                       transition={{ duration: 0.2 }}
                       className="space-y-6 overflow-hidden"
                     >
+                        <FormItem> 
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <FormLabel className="font-medium">Complexidade</FormLabel>
+                          </div>
+                          <Select 
+                            onValueChange={(value) => setSelectedComplexity(value as Complexity)}
+                            value={selectedComplexity} 
+                            disabled={isLoading}
+                           > 
+                            <FormControl> 
+                              <SelectTrigger className="bg-background border-muted-foreground/20 focus:ring-primary/30">
+                                <SelectValue placeholder="Selecione o nível..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {[Complexity.SIMPLE, Complexity.MODERATE, Complexity.DETAILED].map((compValue) => (
+                                 <SelectItem key={compValue} value={compValue}>
+                                   {complexityLabels[compValue]}
+                                 </SelectItem>
+                               ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription className="text-xs text-muted-foreground/80">
+                            Define o nível de detalhe da resposta da IA.
+                          </FormDescription>
+                        </FormItem> 
+                        
                         <FormField
-                          control={form.control}
-                          name="complexity"
-                          render={({ field }) => (
-                            <FormItem>
-                              <div className="flex items-center gap-2 mb-1.5">
-                                <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
-                                <FormLabel className="font-medium">Complexidade ({field.value})</FormLabel>
-                              </div>
-                              <FormControl>
-                                <Slider
-                                  defaultValue={[field.value]}
-                                  onValueChange={(value) => field.onChange(value[0])}
-                                  max={100}
-                                  step={1}
-                                  className="py-2"
-                                />
-                              </FormControl>
-                              <FormDescription className="text-xs text-muted-foreground/80">
-                                Ajuste o nível de detalhe e complexidade do prompt.
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                         <FormField
                           control={form.control}
                           name="includeExamples"
                           render={({ field }) => (
@@ -870,8 +1149,42 @@ export function PromptEngineer() {
                                 <Switch
                                   checked={field.value}
                                   onCheckedChange={field.onChange}
+                                  disabled={isLoading}
                                 />
                               </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="modelId"
+                          render={({ field }) => (
+                            <FormItem>
+                               <div className="flex items-center gap-2 mb-1.5">
+                                <FormLabel className="font-medium">Modelo Gemini (Opcional)</FormLabel>
+                               </div>
+                               <Select 
+                                 onValueChange={field.onChange} 
+                                 value={field.value} 
+                                 disabled={isLoading}
+                               >
+                                <FormControl>
+                                  <SelectTrigger className="bg-background border-muted-foreground/20 focus:ring-primary/30">
+                                    <SelectValue placeholder="Padrão (Gemini 2.0 Flash Exp)" /> 
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {geminiModels.map(model => (
+                                    <SelectItem key={model.value} value={model.value}>
+                                      {model.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormDescription className="text-xs text-muted-foreground/80">
+                                Escolha um modelo específico ou use o padrão da API.
+                              </FormDescription>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
@@ -916,27 +1229,70 @@ export function PromptEngineer() {
                   />
                 )}
               </CardContent>
-              <CardFooter className="pt-2 pb-6">
-                <Button 
-                  type="submit" 
-                  disabled={isLoading} 
-                  className="w-full h-12 rounded-lg bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md transition-all"
-                  ref={generateButtonRef}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Gerando...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-5 w-5" />
-                      Gerar Prompt (Ctrl+Enter)
-                    </>
+              <CardFooter className="pt-2 pb-6 flex flex-col items-stretch gap-3">
+                <div className="flex flex-col gap-4">
+                  {/* Botão cancelar refinamento */}
+                  {isRefining && (
+                    <Button 
+                      onClick={() => setIsRefining(false)}
+                      variant="outline" 
+                      className="w-full mt-2 rounded-full border-primary/20 hover:bg-primary/5 hover:border-primary/30 transition-all"
+                    >
+                      Cancelar Refinamento
+                    </Button>
                   )}
-                </Button>
+
+                  {/* Botão principal */}
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading} 
+                    className="w-full rounded-full bg-gradient-to-r from-primary/80 to-primary shadow-md hover:shadow-lg hover:from-primary hover:to-primary/90 transition-all duration-300 font-medium"
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Gerando Prompt...
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" /> {isRefining ? "Refinar Prompt" : "Gerar Prompt"}
+                      </div>
+                    )}
+                  </Button>
+                </div>
+
+                {/* --- Seção de Refinamento (Condicional) --- */} 
+                {isRefining && (
+                  <div className="mt-2 border-t border-border/10 pt-3 space-y-3"> {/* Aumentar espaço */}
+                      {/* --- Mostrar Prompt Original --- */} 
+                      {generatedPrompt?.genericPrompt && ( 
+                        <div className="space-y-1.5">
+                           <Label className="text-xs font-semibold text-muted-foreground">Refinando o prompt:</Label>
+                           <Card className="bg-muted/40 border-muted-foreground/20 max-h-40 overflow-y-auto"> {/* Limitar altura e adicionar scroll */} 
+                             <CardContent className="p-3">
+                               <pre className="text-xs whitespace-pre-wrap break-words text-foreground/80">
+                                 {generatedPrompt.genericPrompt}
+                               </pre>
+                             </CardContent>
+                           </Card>
+                         </div>
+                       )}
+                      {/* --- Input Instrução de Refinamento --- */} 
+                     <div className="space-y-1.5">
+                       <Label htmlFor="modificationRequest" className="text-sm font-medium">Instrução de Modificação:</Label>
+                       <Textarea
+                         id="modificationRequest"
+                         placeholder="Ex: Faça mais curto, mude o tom para formal, adicione exemplos..."
+                         value={modificationRequest}
+                         onChange={(e) => setModificationRequest(e.target.value)}
+                         className="bg-background border-muted-foreground/20 focus-visible:ring-primary/30 min-h-[60px]"
+                         disabled={isLoading}
+                       />
+                      </div>
+                  </div>
+                )}
               </CardFooter>
-            </form>
+             </form>
+            </fieldset>
           </Form>
         </Card>
 
@@ -946,7 +1302,6 @@ export function PromptEngineer() {
              <Card>
                <CardHeader>
                  <CardTitle>Salvar Versão</CardTitle>
-                 {/* Corrigido: Usar <p> em vez de <FormDescription> */}
                  <p className="text-sm text-muted-foreground">Adicione notas a esta versão do prompt antes de salvar.</p>
                </CardHeader>
                <CardContent>
@@ -981,10 +1336,20 @@ export function PromptEngineer() {
                <CardHeader>
                  <div className="flex justify-between items-center">
                    <CardTitle>Prompt Gerado</CardTitle>
-                   <div className="flex items-center space-x-2">
+                   <div className="flex items-center space-x-1">
+                     {!isRefining && (
+                         <Tooltip>
+                          <TooltipTrigger asChild>
+                             <Button variant="ghost" size="icon-sm" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => setIsRefining(true)}>
+                               <Zap className="h-4 w-4" />
+                             </Button>
+                           </TooltipTrigger>
+                          <TooltipContent>Refinar este prompt</TooltipContent>
+                        </Tooltip>
+                     )}
                      <Tooltip>
                        <TooltipTrigger asChild>
-                         <Button variant="ghost" size="icon-sm" rounded="full" onClick={copyToClipboard}>
+                         <Button variant="ghost" size="icon-sm" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={copyToClipboard}>
                            {copied ? <CheckCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                          </Button>
                        </TooltipTrigger>
@@ -992,7 +1357,7 @@ export function PromptEngineer() {
                      </Tooltip>
                      <Tooltip>
                        <TooltipTrigger asChild>
-                         <Button variant="ghost" size="icon-sm" rounded="full" onClick={() => setShowVersionHistory(true)}>
+                         <Button variant="ghost" size="icon-sm" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => setShowVersionHistory(true)}>
                            <History className="h-4 w-4" />
                          </Button>
                        </TooltipTrigger>
@@ -1000,8 +1365,7 @@ export function PromptEngineer() {
                      </Tooltip>
                      <Tooltip>
                        <TooltipTrigger asChild>
-                         {/* Habilitar botão de salvar apenas se as notas estiverem visíveis */}
-                         <Button variant="ghost" size="icon-sm" rounded="full" onClick={handleSaveVersion} disabled={!showVersionNotes}>
+                         <Button variant="ghost" size="icon-sm" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={handleSaveVersion} disabled={!showVersionNotes}>
                            <Save className="h-4 w-4" />
                          </Button>
                        </TooltipTrigger>
@@ -1009,11 +1373,9 @@ export function PromptEngineer() {
                      </Tooltip>
                    </div>
                  </div>
-                 {/* Corrigido: Usar <p> em vez de <FormDescription> */}
                  <p className="text-sm text-muted-foreground">Revise o prompt gerado ou edite-o diretamente.</p>
                </CardHeader>
                <CardContent className="pt-4">
-                 {/* Corrigido: Passar a string do prompt e platform */}
                  <PromptCard
                    platform="generic"
                    prompt={generatedPrompt.genericPrompt}
@@ -1033,13 +1395,11 @@ export function PromptEngineer() {
            <AnimatePresence>
              {showHistory && (
                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                 {/* Corrigido: Usar prop 'onSelect' e passar 'history' */}
                  <PromptHistory history={history} onSelect={handleSelectHistoryItem} />
                </motion.div>
              )}
              {showVersionHistory && generatedPrompt && (
                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                 {/* Corrigido: Adicionar promptId e onClose */}
                  <VersionHistory
                    promptId={generatedPrompt.id}
                    onSelectVersion={handleSelectVersion}
@@ -1052,11 +1412,36 @@ export function PromptEngineer() {
 
          {/* Dialogs */}
          <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
-         {/* Corrigido: Remover prop triggerRef */}
          <CommandMenu />
-         {/* Corrigido: Remover props onApplySuggestion e getCurrentParams */}
          <AIAssistantPanel />
+         {/* --- Suggestions Dialog --- */} 
+         <Dialog open={showSuggestionsDialog} onOpenChange={setShowSuggestionsDialog}>
+           <DialogContent className="max-w-lg">
+             <DialogHeader>
+               <DialogTitle>Sugestões de Tópico</DialogTitle>
+             </DialogHeader>
+             <div className="pt-4">
+               {topicSuggestions.length > 0 ? (
+                 <div className="flex flex-col max-h-[400px] overflow-y-auto -mx-6">
+                   {topicSuggestions.map((topic, index) => (
+                     <Button 
+                       key={index} 
+                       variant="ghost" 
+                       className="justify-start font-normal rounded-none hover:bg-primary/5 px-6 py-3 text-left h-auto whitespace-normal"
+                       onClick={() => applyTopicSuggestion(topic)}
+                     >
+                       <Lightbulb className="h-4 w-4 mr-3 text-primary flex-shrink-0 mt-1" /> 
+                       <span>{topic}</span>
+                     </Button>
+                   ))}
+                 </div>
+               ) : (
+                 <p className="text-muted-foreground text-center py-4">Nenhuma sugestão disponível no momento.</p>
+               )}
+             </div>
+           </DialogContent>
+         </Dialog>
       </div>
-          </TooltipProvider>
+    </TooltipProvider>
   )
 }

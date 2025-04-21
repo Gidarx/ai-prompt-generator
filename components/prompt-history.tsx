@@ -105,12 +105,12 @@ export function PromptHistory({ history, onSelect }: PromptHistoryProps) {
                       </Button>
                     </div>
                   </div>
-                  <div className="font-medium truncate">{item.params.keywords}</div>
+                  <div className="font-medium truncate">{item.params.keywords || "(Sem palavras-chave)"}</div>
                   <div className="text-sm text-muted-foreground mt-1 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span>{item.params.platforms.join(", ")}</span>
+                      <span className="capitalize">{item.params.mode?.replace("_", " ") || "N/A"}</span>
                       <span>•</span>
-                      <span>{item.params.tone}</span>
+                      <span className="capitalize">{item.params.tone || "N/A"}</span>
                     </div>
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-primary" onClick={() => onSelect(item)}>
                       Usar <ChevronRight className="h-3.5 w-3.5 ml-1" />
