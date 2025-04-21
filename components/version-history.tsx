@@ -71,10 +71,12 @@ export function VersionHistory({ promptId, onSelectVersion, onClose }: VersionHi
       changes.push("Contexto modificado")
     }
 
-    // Comparar plataformas
+    // Comparar plataformas (Comentado pois 'platforms' não existe em PromptParams)
+    /*
     if (JSON.stringify(previousVersion.params.platforms) !== JSON.stringify(version.params.platforms)) {
       changes.push("Plataformas atualizadas")
     }
+    */
 
     // Comparar tom
     if (previousVersion.params.tone !== version.params.tone) {
@@ -88,8 +90,9 @@ export function VersionHistory({ promptId, onSelectVersion, onClose }: VersionHi
 
     // Comparar complexidade
     if (previousVersion.params.complexity !== version.params.complexity) {
+      // Exibir os valores do enum diretamente na mensagem
       changes.push(
-        `Complexidade alterada de ${Math.round(previousVersion.params.complexity * 100)}% para ${Math.round(version.params.complexity * 100)}%`,
+        `Complexidade alterada de ${previousVersion.params.complexity} para ${version.params.complexity}`,
       )
     }
 
@@ -198,11 +201,7 @@ export function VersionHistory({ promptId, onSelectVersion, onClose }: VersionHi
                 <div>
                   <h3 className="text-sm font-medium mb-2">Plataformas</h3>
                   <div className="flex flex-wrap gap-1">
-                    {selectedVersion.params.platforms.map((platform) => (
-                      <Badge key={platform} variant="secondary" className="text-xs">
-                        {platform}
-                      </Badge>
-                    ))}
+                    {/* Plataformas removidas pois 'platforms' não existe em PromptParams */}
                   </div>
                 </div>
               </div>
@@ -232,7 +231,7 @@ export function VersionHistory({ promptId, onSelectVersion, onClose }: VersionHi
                 <div>
                   <h3 className="text-sm font-medium mb-2">Complexidade</h3>
                   <Badge variant="outline" className="text-xs">
-                    {Math.round(selectedVersion.params.complexity * 100)}%
+                    {selectedVersion.params.complexity} {/* Exibir o valor do enum diretamente */}
                   </Badge>
                 </div>
               </div>

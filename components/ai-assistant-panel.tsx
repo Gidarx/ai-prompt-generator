@@ -32,8 +32,11 @@ const QUICK_SUGGESTIONS = [
 ];
 
 export function AIAssistantPanel({}: AIAssistantPanelProps) {
+  // Desestruturar os campos do estado diretamente
   const {
-    context,
+    messages,
+    isActive,
+    isTyping,
     addUserMessage,
     clearMessages,
     toggleAssistant,
@@ -52,7 +55,7 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
   // Efeito para rolagem automática
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [context.messages])
+  }, [messages]) // Usar messages diretamente
 
   // Enviar mensagem do usuário
   const handleSendMessage = () => {
@@ -67,7 +70,7 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
     navigator.clipboard.writeText(content)
     setCopied(id)
     setTimeout(() => setCopied(null), 2000)
-    
+
     toast({
       title: "Copiado para a área de transferência",
       description: "O texto foi copiado com sucesso",
@@ -76,18 +79,18 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
   }
 
   // Renderização do botão flutuante quando o assistente está desativado
-  if (!context.isActive) {
+  if (!isActive) { // Usar isActive diretamente
     return (
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 260, damping: 20 }}
       >
-        <Button 
-          onClick={toggleAssistant} 
-          className="fixed bottom-6 right-6 rounded-full h-14 w-14 
+        <Button
+          onClick={toggleAssistant}
+          className="fixed bottom-6 right-6 rounded-full h-14 w-14
           shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(14,165,233,0.15)]
-          bg-gradient-to-br from-indigo-500 via-blue-500 to-sky-400 
+          bg-gradient-to-br from-indigo-500 via-blue-500 to-sky-400
           hover:from-indigo-600 hover:via-blue-600 hover:to-sky-500
           dark:from-indigo-600 dark:via-blue-600 dark:to-sky-500
           dark:hover:from-indigo-700 dark:hover:via-blue-700 dark:hover:to-sky-600
@@ -123,13 +126,13 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
               Assistente IA
             </CardTitle>
             <div className="flex items-center gap-1">
-              {context.messages.length > 0 && (
+              {messages.length > 0 && ( // Usar messages diretamente
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10"
                         onClick={clearMessages}
                       >
@@ -142,14 +145,14 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
                   </Tooltip>
                 </TooltipProvider>
               )}
-              
-              {context.messages.length > 1 && (
+
+              {messages.length > 1 && ( // Usar messages diretamente
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10"
                         onClick={exportChatHistory}
                       >
@@ -162,7 +165,7 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
                   </Tooltip>
                 </TooltipProvider>
               )}
-              
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -175,7 +178,7 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -195,7 +198,7 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
             <>
               <CardContent className="p-0">
                 <ScrollArea className="h-[350px] p-4">
-                  {context.messages.length === 0 ? (
+                  {messages.length === 0 ? ( // Usar messages diretamente
                     <div className="flex flex-col items-center justify-center h-full text-center p-4">
                       <div className="w-16 h-16 mb-4 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center">
                         <Sparkles className="h-8 w-8 text-blue-500 dark:text-blue-400" />
@@ -205,7 +208,7 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
                         Olá! Sou seu assistente especializado em engenharia de prompts. Como posso ajudar você a criar
                         prompts mais eficazes hoje?
                       </p>
-                      
+
                       <div className="space-y-2 w-full">
                         <h4 className="text-xs uppercase tracking-wider font-semibold text-blue-500 dark:text-blue-400 flex items-center">
                           <Lightbulb className="h-3 w-3 mr-1" />
@@ -213,7 +216,7 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
                         </h4>
                         <div className="flex flex-wrap gap-2 justify-center">
                           {QUICK_SUGGESTIONS.slice(0, 3).map((suggestion, i) => (
-                            <Badge 
+                            <Badge
                               key={i}
                               className="bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-800/30 px-3 py-1"
                               onClick={() => addUserMessage(suggestion)}
@@ -226,7 +229,7 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
                     </div>
                   ) : (
                     <div className="space-y-5">
-                      {context.messages.map((message) => (
+                      {messages.map((message) => ( // Usar messages diretamente
                         <div
                           key={message.id}
                           className={`group flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
@@ -235,8 +238,8 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
                             className={`flex gap-2 max-w-[85%] ${message.type === "user" ? "flex-row-reverse" : ""}`}
                           >
                             <Avatar className={`h-8 w-8 ${
-                              message.type === "system" 
-                                ? "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/50 dark:text-yellow-400" 
+                              message.type === "system"
+                                ? "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/50 dark:text-yellow-400"
                                 : message.type === "user"
                                   ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"
                                   : "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400"
@@ -276,7 +279,7 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
                                         code({node, inline, className, children, ...props}) {
                                           const match = /language-(\w+)/.exec(className || '');
                                           const language = match ? match[1] : '';
-                                          
+
                                           return !inline ? (
                                             <SyntaxHighlighter
                                               // @ts-ignore - Problema de tipagem com o SyntaxHighlighter
@@ -305,9 +308,9 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
                                 )}
                               </div>
                               <div className={`flex mt-1 gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${message.type === "user" ? "justify-end" : "justify-start"}`}>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   className="h-6 w-6 rounded-full"
                                   onClick={() => handleCopyMessage(message.id, message.content)}
                                 >
@@ -317,9 +320,9 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
                                     <Copy className="h-3 w-3 text-muted-foreground" />
                                   )}
                                 </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   className="h-6 w-6 rounded-full text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"
                                   onClick={() => deleteMessage(message.id)}
                                 >
@@ -336,7 +339,7 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
                         </div>
                       ))}
 
-                      {context.isTyping && (
+                      {isTyping && ( // Usar isTyping diretamente
                         <div className="flex justify-start">
                           <div className="flex gap-2 max-w-[80%]">
                             <Avatar className="h-8 w-8 bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400">
@@ -371,12 +374,12 @@ export function AIAssistantPanel({}: AIAssistantPanelProps) {
                     onChange={(e) => setUserInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
                   />
-                  <Button 
-                    type="button" 
-                    size="icon" 
+                  <Button
+                    type="button"
+                    size="icon"
                     className="h-10 w-10 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-sm"
-                    onClick={handleSendMessage} 
-                    disabled={!userInput.trim() || context.isTyping}
+                    onClick={handleSendMessage}
+                    disabled={!userInput.trim() || isTyping} // Usar isTyping diretamente
                   >
                     <Send className="h-4 w-4" />
                   </Button>

@@ -45,7 +45,7 @@ export function usePromptVersions() {
         version: newVersionNumber,
         timestamp: Date.now(),
         params: { ...prompt.params },
-        results: { ...prompt.results },
+        results: { generic: prompt.genericPrompt },
         notes,
       }
 

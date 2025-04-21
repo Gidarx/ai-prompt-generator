@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BrainCircuit, Lightbulb, RefreshCw, ThumbsUp, ChevronRight, Code, MessageSquare, Zap } from "lucide-react"
 import { motion } from "framer-motion"
 import { generateBrainstormIdeas, refineIdea } from "@/lib/brainstorm-service"
-import type { BrainstormIdea, PromptParams, Platform, Tone } from "@/lib/types"
+import { type BrainstormIdea, type PromptParams, type Platform, type Tone, Complexity } from "@/lib/types"
 
 interface BrainstormSessionProps {
   onSelectIdea: (params: Partial<PromptParams>) => void
@@ -23,6 +23,12 @@ export function BrainstormSession({ onSelectIdea, onClose }: BrainstormSessionPr
   const [selectedIdea, setSelectedIdea] = useState<BrainstormIdea | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [activeTab, setActiveTab] = useState<"ideas" | "refine">("ideas")
+
+  const mapNumberToComplexity = (value: number): Complexity => {
+    if (value < 34) return Complexity.SIMPLE
+    if (value < 67) return Complexity.MODERATE
+    return Complexity.DETAILED
+  }
 
   // Gerar ideias com base no tema
   const handleGenerateIdeas = () => {
@@ -78,10 +84,9 @@ export function BrainstormSession({ onSelectIdea, onClose }: BrainstormSessionPr
     const params: Partial<PromptParams> = {
       keywords: idea.keywords,
       context: idea.description,
-      platforms: [...idea.platforms],
       tone: idea.tone,
       length: "medium",
-      complexity: Math.round(idea.confidence),
+      complexity: mapNumberToComplexity(idea.confidence),
       includeExamples: idea.confidence > 85,
     }
 

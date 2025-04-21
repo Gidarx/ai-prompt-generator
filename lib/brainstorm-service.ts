@@ -1,4 +1,5 @@
-import type { BrainstormIdea, Platform, Tone } from "@/lib/types"
+import type { BrainstormIdea, Platform } from "@/lib/types" // Remove Tone from type import
+import { Tone } from "@/lib/types" // Add regular import for Tone
 
 // Função para gerar ideias de brainstorming com base em um tema
 export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIdea[] {
@@ -19,7 +20,7 @@ export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIde
       description: "Crie prompts que expliquem conceitos técnicos complexos de forma simples e acessível",
       keywords: `${theme} explicação conceitos simplificada didática`,
       platforms: ["cursor", "bolt"],
-      tone: "technical",
+      tone: Tone.TECHNICAL, // Usar enum
       confidence: 92,
     })
 
@@ -29,7 +30,7 @@ export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIde
       description: "Prompts para ajudar a identificar e corrigir erros em código ou otimizar algoritmos",
       keywords: `${theme} debugging otimização código solução problemas`,
       platforms: ["cursor"],
-      tone: "technical",
+      tone: Tone.TECHNICAL, // Usar enum
       confidence: 95,
     })
 
@@ -39,7 +40,7 @@ export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIde
       description: "Crie prompts para gerar tutoriais detalhados sobre tecnologias específicas",
       keywords: `${theme} tutorial passo-a-passo aprendizado guia`,
       platforms: ["cursor", "lovable"],
-      tone: "professional",
+      tone: Tone.PROFESSIONAL, // Usar enum
       confidence: 88,
     })
   }
@@ -56,7 +57,7 @@ export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIde
       description: "Prompts para criar histórias envolventes com personagens bem desenvolvidos",
       keywords: `${theme} narrativa história personagens enredo`,
       platforms: ["lovable"],
-      tone: "creative",
+      tone: Tone.CREATIVE, // Usar enum
       confidence: 90,
     })
 
@@ -66,7 +67,7 @@ export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIde
       description: "Crie prompts que gerem descrições ricas e detalhadas de cenas ou ambientes",
       keywords: `${theme} descrição visual detalhes ambiente cena`,
       platforms: ["lovable"],
-      tone: "creative",
+      tone: Tone.CREATIVE, // Usar enum
       confidence: 87,
     })
 
@@ -76,7 +77,7 @@ export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIde
       description: "Prompts para gerar diálogos naturais e autênticos entre personagens",
       keywords: `${theme} diálogo conversa personagens interação`,
       platforms: ["lovable", "bolt"],
-      tone: "casual",
+      tone: Tone.CASUAL, // Usar enum
       confidence: 85,
     })
   }
@@ -93,7 +94,7 @@ export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIde
       description: "Prompts para gerar análises detalhadas de tendências e oportunidades de mercado",
       keywords: `${theme} análise mercado tendências oportunidades`,
       platforms: ["cursor", "bolt"],
-      tone: "professional",
+      tone: Tone.PROFESSIONAL, // Usar enum
       confidence: 91,
     })
 
@@ -103,7 +104,7 @@ export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIde
       description: "Crie prompts para emails, relatórios e apresentações profissionais",
       keywords: `${theme} comunicação corporativa email relatório apresentação`,
       platforms: ["bolt"],
-      tone: "professional",
+      tone: Tone.PROFESSIONAL, // Usar enum
       confidence: 93,
     })
 
@@ -113,7 +114,7 @@ export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIde
       description: "Prompts para desenvolver estratégias de marketing e campanhas promocionais",
       keywords: `${theme} marketing estratégia campanha promoção`,
       platforms: ["lovable", "bolt"],
-      tone: "professional",
+      tone: Tone.PROFESSIONAL, // Usar enum
       confidence: 89,
     })
   }
@@ -126,7 +127,7 @@ export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIde
       description: "Prompts para explicar conceitos complexos de forma educativa e acessível",
       keywords: `${theme} educação explicação conceitos aprendizado`,
       platforms: ["cursor", "lovable"],
-      tone: "professional",
+      tone: Tone.PROFESSIONAL, // Usar enum
       confidence: 84,
     })
 
@@ -136,7 +137,7 @@ export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIde
       description: "Crie prompts que gerem resumos concisos e informativos sobre o tema",
       keywords: `${theme} resumo conciso informativo síntese`,
       platforms: ["bolt"],
-      tone: "professional",
+      tone: Tone.PROFESSIONAL, // Usar enum
       confidence: 86,
     })
 
@@ -146,7 +147,7 @@ export function generateBrainstormIdeas(theme: string, count = 5): BrainstormIde
       description: "Prompts para criar sequências de perguntas e respostas informativas",
       keywords: `${theme} perguntas respostas FAQ informação`,
       platforms: ["cursor", "bolt"],
-      tone: "casual",
+      tone: Tone.CASUAL, // Usar enum
       confidence: 82,
     })
   }

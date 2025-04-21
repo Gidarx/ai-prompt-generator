@@ -16,6 +16,7 @@ import {
   searchTrendingTopics,
 } from "@/lib/trending-topics"
 import type { TrendingTopic, PromptParams } from "@/lib/types"
+import { Complexity, Tone, Length } from "@/lib/types" // Import enums
 
 interface TrendingTopicsPanelProps {
   onSelectTopic: (params: Partial<PromptParams>) => void
@@ -38,30 +39,38 @@ export function TrendingTopicsPanel({ onSelectTopic }: TrendingTopicsPanelProps)
       context: topic.description,
     }
 
-    // Definir plataformas com base na categoria
+    // Definir tom e tamanho com base na categoria
     if (topic.category === "tecnologia" || topic.category === "dados") {
-      params.platforms = ["cursor", "bolt"]
-      params.tone = "technical"
-      params.length = "medium"
+      // params.platforms = ["cursor", "bolt"] // Removido
+      params.tone = Tone.TECHNICAL // Usar enum
+      params.length = 'medium' // Usar string literal
     } else if (topic.category === "criativo") {
-      params.platforms = ["lovable"]
-      params.tone = "creative"
-      params.length = "long"
+      // params.platforms = ["lovable"] // Removido
+      params.tone = Tone.CREATIVE // Usar enum
+      params.length = 'long' // Usar string literal
     } else if (topic.category === "marketing") {
-      params.platforms = ["lovable", "bolt"]
-      params.tone = "professional"
-      params.length = "medium"
+      // params.platforms = ["lovable", "bolt"] // Removido
+      params.tone = Tone.PROFESSIONAL // Usar enum
+      params.length = 'medium' // Usar string literal
     } else {
-      params.platforms = ["cursor", "lovable", "bolt"]
-      params.tone = "professional"
-      params.length = "medium"
+      // params.platforms = ["cursor", "lovable", "bolt"] // Removido
+      params.tone = Tone.PROFESSIONAL // Usar enum
+      params.length = 'medium' // Usar string literal
     }
 
-    // Definir complexidade com base na popularidade
-    params.complexity = Math.min(100, Math.max(30, topic.popularity))
+    // Mapear popularidade para enum Complexity
+    const popularity = Math.min(100, Math.max(0, topic.popularity)); // Garantir 0-100
+    if (popularity <= 33) {
+      params.complexity = Complexity.SIMPLE;
+    } else if (popularity <= 66) {
+      params.complexity = Complexity.MODERATE;
+    } else {
+      params.complexity = Complexity.DETAILED;
+    }
 
-    // Incluir exemplos para tópicos mais complexos
-    params.includeExamples = topic.popularity > 80
+    // Incluir exemplos para tópicos mais complexos (maior popularidade)
+    params.includeExamples = popularity > 75 // Ajustado limiar
+
 
     onSelectTopic(params)
   }

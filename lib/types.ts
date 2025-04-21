@@ -91,7 +91,7 @@ export interface PromptVersion {
   version: number
   timestamp: number
   params: PromptParams
-  results: Record<Platform, string>
+  results: Partial<Record<Platform, string>> // Allow partial results
   notes?: string
 }
 

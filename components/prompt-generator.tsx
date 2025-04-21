@@ -21,7 +21,9 @@ import { PromptComparison } from "@/components/prompt-comparison"
 import { CommandMenu } from "@/components/command-menu"
 import { usePromptHistory } from "@/lib/hooks/use-prompt-history"
 import { useUserPreferences } from "@/lib/hooks/use-user-preferences"
-import type { Platform, Tone, Length } from "@/lib/types"
+import type { Platform, Length, PromptMode } from "@/lib/types" // Add PromptMode type import
+import { Tone, Complexity } from "@/lib/types" // Add regular import for Tone and Complexity
+import { templates as promptTemplateList, SimplePromptTemplate } from "@/lib/promptTemplates" // Import the list and type
 import {
   Loader2,
   Sparkles,
@@ -48,7 +50,7 @@ export function PromptGenerator() {
   const [keywords, setKeywords] = useState("")
   const [context, setContext] = useState("")
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(["cursor", "lovable", "bolt"])
-  const [tone, setTone] = useState<Tone>("professional")
+  const [tone, setTone] = useState<Tone>(Tone.PROFESSIONAL)
   const [length, setLength] = useState<Length>("medium")
   const [complexity, setComplexity] = useState(50)
   const [includeExamples, setIncludeExamples] = useState(true)
@@ -130,13 +132,24 @@ export function PromptGenerator() {
     if (!validateForm()) return
 
     try {
+      // Mapear o valor numérico de complexidade para o enum Complexity
+      let mappedComplexity: Complexity;
+      if (complexity <= 33) {
+        mappedComplexity = Complexity.SIMPLE;
+      } else if (complexity <= 66) {
+        mappedComplexity = Complexity.MODERATE;
+      } else {
+        mappedComplexity = Complexity.DETAILED;
+      }
+
       const result = await generatePrompt({
         keywords,
         context,
-        platforms: selectedPlatforms,
+        // platforms: selectedPlatforms, // Removido - não é esperado por PromptParams/API
         tone,
         length,
-        complexity: complexity / 100,
+        complexity: mappedComplexity, // Usar o valor mapeado do enum
+        mode: 'content_creation', // Adicionar modo padrão
         includeExamples,
       })
 
@@ -314,18 +327,47 @@ export function PromptGenerator() {
             transition={{ duration: 0.3 }}
           >
             <PromptTemplates
-              onSelectTemplate={(template) => {
-                setKeywords(template.keywords)
-                setContext(template.context)
-                setSelectedPlatforms(template.platforms)
-                setTone(template.tone)
-                setLength(template.length)
-                setComplexity(template.complexity)
-                setIncludeExamples(template.includeExamples)
+              templates={promptTemplateList} // Passar a lista de templates importada
+              onSelectTemplate={(template: SimplePromptTemplate) => { // Tipar o argumento template
+                setKeywords(template.defaultKeywords || ""); // Usar defaultKeywords
+                setContext(""); // Resetar contexto ao aplicar template
+
+                // Manter plataformas selecionadas, não sobrescrever com template
+                // setSelectedPlatforms(template.platforms) // Remover
+
+                if (template.defaultTone) {
+                  setTone(template.defaultTone); // Usar defaultTone se existir
+                }
+                // Manter tamanho selecionado, não sobrescrever com template
+                // setLength(template.length) // Remover
+
+                if (template.defaultComplexity) {
+                  // Mapear enum Complexity de volta para valor numérico 0-100
+                  let numericComplexity = 50; // Default
+                  switch (template.defaultComplexity) {
+                    case Complexity.SIMPLE:
+                    case Complexity.BEGINNER:
+                      numericComplexity = 15;
+                      break;
+                    case Complexity.MODERATE:
+                    case Complexity.INTERMEDIATE:
+                      numericComplexity = 50;
+                      break;
+                    case Complexity.DETAILED:
+                    case Complexity.ADVANCED:
+                      numericComplexity = 85;
+                      break;
+                  }
+                  setComplexity(numericComplexity); // Usar valor numérico mapeado
+                }
+
+                // Manter includeExamples selecionado, não sobrescrever com template
+                // setIncludeExamples(template.includeExamples) // Remover
+
                 setShowTemplates(false)
                 toast({
                   title: "Template aplicado",
-                  description: `O template "${template.title}" foi aplicado com sucesso.`,
+                  description: `O template "${template.name}" foi aplicado com sucesso.`, // Usar template.name
                 })
               }}
             />
@@ -521,13 +563,29 @@ export function PromptGenerator() {
                 <PromptHistory
                   history={history}
                   onSelect={(item) => {
-                    setKeywords(item.params.keywords)
+                    setKeywords(item.params.keywords ?? "") // Provide default empty string
                     setContext(item.params.context || "")
-                    setSelectedPlatforms(item.params.platforms)
+                    // setSelectedPlatforms(item.params.platforms) // 'platforms' não existe em PromptParams
                     setTone(item.params.tone)
-                    setLength(item.params.length)
-                    setComplexity(Math.round(item.params.complexity * 100))
-                    setIncludeExamples(item.params.includeExamples)
+                    setLength(item.params.length ?? 'medium') // Provide default length
+                    // Mapear enum Complexity de volta para valor numérico 0-100
+                    let numericComplexity = 50; // Default
+                    switch (item.params.complexity) {
+                      case Complexity.SIMPLE:
+                      case Complexity.BEGINNER:
+                        numericComplexity = 15;
+                        break;
+                      case Complexity.MODERATE:
+                      case Complexity.INTERMEDIATE:
+                        numericComplexity = 50;
+                        break;
+                      case Complexity.DETAILED:
+                      case Complexity.ADVANCED:
+                        numericComplexity = 85;
+                        break;
+                    }
+                    setComplexity(numericComplexity); // Usar valor numérico mapeado
+                    setIncludeExamples(item.params.includeExamples ?? true) // Provide default
                     setShowHistory(false)
                   }}
                 />
@@ -544,7 +602,7 @@ export function PromptGenerator() {
                 <span className="inline-block h-3 w-3 rounded-full bg-primary"></span>
                 Prompts Gerados
               </CardTitle>
-              {hasGeneratedPrompts && latestPrompt.params.platforms.length > 1 && (
+              {/* {hasGeneratedPrompts && ( // Botão Comparar comentado pois 'results' não existe em GeneratedPrompt
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -565,7 +623,7 @@ export function PromptGenerator() {
                     )}
                   </Button>
                 </div>
-              )}
+              )} */}
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
@@ -614,16 +672,14 @@ export function PromptGenerator() {
                     </Button>
                   </div>
                 </div>
-              ) : showComparison ? (
-                <PromptComparison prompts={latestPrompt.results} onClose={() => setShowComparison(false)} />
-              ) : (
+              ) : ( // Removido o ramo showComparison
                 <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as Platform)} className="w-full">
                   <TabsList className="w-full rounded-none border-b border-border/10 bg-background/20 p-0 h-auto">
                     {(["cursor", "lovable", "bolt"] as Platform[]).map((platform) => (
                       <TabsTrigger
                         key={platform}
                         value={platform}
-                        disabled={!latestPrompt.params.platforms.includes(platform)}
+                        // disabled={!latestPrompt.params.platforms.includes(platform)} // Removido pois 'platforms' não existe em params
                         className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary py-3 px-4 capitalize"
                       >
                         {platform}
@@ -632,8 +688,9 @@ export function PromptGenerator() {
                   </TabsList>
                   {(["cursor", "lovable", "bolt"] as Platform[]).map((platform) => (
                     <TabsContent key={platform} value={platform} className="p-0 m-0">
-                      {latestPrompt.params.platforms.includes(platform) && latestPrompt.results[platform] && (
-                        <PromptCard platform={platform} prompt={latestPrompt.results[platform]} />
+                      {/* Condição removida pois 'platforms' e 'results' não existem em latestPrompt */}
+                      {latestPrompt && ( // Renderiza se latestPrompt existir
+                        <PromptCard platform={platform} prompt={latestPrompt.genericPrompt} /> // Usa o prompt genérico
                       )}
                     </TabsContent>
                   ))}
