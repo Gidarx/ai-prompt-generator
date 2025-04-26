@@ -1,202 +1,83 @@
 "use client"
 
+import React, { useEffect, useState } from "react"
+import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
-import { useEffect, useState, useRef } from "react"
-import { motion } from "framer-motion"
 
-export function BackgroundGradient() {
+interface BackgroundGradientProps {
+  className?: string
+  children?: React.ReactNode
+}
+
+export function BackgroundGradient({ className, children }: BackgroundGradientProps) {
   const { theme } = useTheme()
   const [mounted, setMounted] = useState(false)
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
-  const containerRef = useRef<HTMLDivElement>(null)
 
+  // Evitar problemas de hidratação
   useEffect(() => {
     setMounted(true)
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect()
-        setMousePosition({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top
-        })
-      }
-    }
-    
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
-    }
   }, [])
 
-  if (!mounted) return null
-
+  if (!mounted) {
+    return null
+  }
+  
   return (
-    <div ref={containerRef} className="fixed inset-0 z-0 overflow-hidden">
-      {/* Base gradient */}
+    <div className="relative overflow-hidden min-h-screen">
       <div 
-        className={`fixed inset-0 ${theme === 'dark' 
-          ? 'bg-gradient-to-br from-[#0f1114] via-[#121631] to-[#08080e]' 
-          : 'bg-gradient-to-br from-[#f1f5f9] via-[#e9f1fd] to-[#eef8ff]'}`} 
-      />
-      
-      {/* Glowing orbs that respond to mouse */}
-      <div 
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          background: theme === 'dark' 
-            ? `radial-gradient(800px at ${mousePosition.x}px ${mousePosition.y}px, rgba(29, 78, 216, 0.12), transparent 70%)`
-            : `radial-gradient(800px at ${mousePosition.x}px ${mousePosition.y}px, rgba(56, 189, 248, 0.08), transparent 70%)`,
-        }}
-      />
-
-      {/* Floating particles */}
-      <div className="fixed inset-0 overflow-hidden">
-        {Array.from({ length: 15 }).map((_, i) => (
-          <motion.div
-            key={i}
-            className={`absolute rounded-full ${theme === 'dark' 
-              ? 'bg-primary/10 shadow-[0_0_10px_0px_rgba(59,130,246,0.2)]' 
-              : 'bg-accent/10 shadow-[0_0_10px_0px_rgba(99,102,241,0.15)]'}`}
-            style={{
-              width: `${Math.random() * 4 + 1}px`,
-              height: `${Math.random() * 4 + 1}px`,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              y: [0, Math.random() * -80 - 40, 0],
-              x: [0, Math.random() * 80 - 40, 0],
-              opacity: [0.3, 0.7, 0.3],
-            }}
-            transition={{
-              duration: Math.random() * 10 + 20,
-              repeat: Infinity,
-              ease: "linear",
-            }}
-          />
-        ))}
+        className={cn(
+          "fixed inset-0 -z-10 opacity-30 transition-opacity duration-1000",
+          theme === "dark" ? "opacity-40" : "opacity-30",
+          className
+        )}
+      >
+        {/* Gradiente interativo */}
+        <div className="absolute inset-0 bg-grid-pattern" />
+        <div className="absolute top-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full bg-primary/30 blur-[100px] animate-blob1" />
+        <div className="absolute bottom-[-10%] left-[-10%] h-[600px] w-[600px] rounded-full bg-accent/20 blur-[100px] animate-blob2" />
+        <div className="absolute top-[40%] left-[20%] h-[400px] w-[400px] rounded-full bg-secondary/20 blur-[100px] animate-blob3" />
       </div>
-
-      {/* Circuit lines refinadas */}
-      <div className="fixed inset-0 overflow-hidden">
-        {Array.from({ length: 10 }).map((_, i) => {
-          const startX = Math.random() * 100
-          const startY = Math.random() * 100
-          const width = Math.random() * 80 + 60 
-          const angle = Math.random() * 180
-          
-          return (
-            <motion.div
-              key={`line-${i}`}
-              className={`absolute ${theme === 'dark' 
-                ? 'border-t border-primary/10' 
-                : 'border-t border-accent/5'}`}
-              style={{
-                width: `${width}px`,
-                left: `${startX}%`,
-                top: `${startY}%`,
-                transform: `rotate(${angle}deg)`,
-                transformOrigin: 'left',
-              }}
-              animate={{
-                opacity: [0, 0.3, 0],
-                width: [`${width * 0.7}px`, `${width}px`, `${width * 0.8}px`]
-              }}
-              transition={{
-                duration: 10,
-                delay: i * 1.2,
-                repeat: Infinity,
-                repeatType: "reverse",
-              }}
-            />
-          )
-        })}
-      </div>
-
-      {/* Digital node points refinados */}
-      <div className="fixed inset-0 overflow-hidden">
-        {Array.from({ length: 8 }).map((_, i) => {
-          const posX = Math.random() * 100
-          const posY = Math.random() * 100
-          const size = Math.random() * 3 + 1
-          
-          return (
-            <motion.div
-              key={`node-${i}`}
-              className={`absolute rounded-full ${theme === 'dark' 
-                ? 'bg-primary/20' 
-                : 'bg-accent/15'}`}
-              style={{
-                width: `${size}px`,
-                height: `${size}px`,
-                left: `${posX}%`,
-                top: `${posY}%`,
-              }}
-              animate={{
-                boxShadow: [
-                  `0 0 0px rgba(${theme === 'dark' ? '29, 78, 216' : '129, 140, 248'}, 0.2)`,
-                  `0 0 8px rgba(${theme === 'dark' ? '29, 78, 216' : '129, 140, 248'}, 0.5)`,
-                  `0 0 0px rgba(${theme === 'dark' ? '29, 78, 216' : '129, 140, 248'}, 0.2)`,
-                ],
-              }}
-              transition={{
-                duration: Math.random() * 3 + 2,
-                repeat: Infinity,
-                repeatType: "mirror",
-                delay: i * 0.8,
-              }}
-            />
-          )
-        })}
-      </div>
-      
-      {/* Futuristic horizontal lines refinadas */}
-      <div className="fixed inset-0 overflow-hidden">
-        {Array.from({ length: 4 }).map((_, i) => {
-          const posY = 20 + i * 20
-          return (
-            <motion.div
-              key={`hline-${i}`}
-              className={`absolute left-0 right-0 h-[0.5px] ${theme === 'dark' 
-                ? 'bg-gradient-to-r from-transparent via-primary/15 to-transparent' 
-                : 'bg-gradient-to-r from-transparent via-accent/8 to-transparent'}`}
-              style={{
-                top: `${posY}%`,
-              }}
-              animate={{
-                opacity: [0.05, 0.2, 0.05],
-              }}
-              transition={{
-                duration: 8,
-                repeat: Infinity,
-                delay: i * 1.5,
-              }}
-            />
-          )
-        })}
-      </div>
-
-      {/* Tech "scanner" effect refinado */}
-      <motion.div
-        className={`fixed left-0 right-0 h-[1px] ${theme === 'dark' 
-          ? 'bg-primary/30' 
-          : 'bg-accent/20'}`}
-        animate={{
-          top: ['0%', '100%', '0%'],
-          opacity: [0.3, 0.6, 0.3],
-        }}
-        transition={{
-          duration: 20,
-          ease: "linear",
-          repeat: Infinity,
-        }}
-        style={{
-          boxShadow: theme === 'dark' 
-            ? '0 0 15px 1px rgba(59, 130, 246, 0.3)' 
-            : '0 0 15px 1px rgba(99, 102, 241, 0.2)',
-        }}
-      />
+      {children}
     </div>
   )
 }
+
+// Definir animações e padrão de grade no seu CSS global (app/globals.css):
+// 
+// @keyframes blob1 {
+//   0%, 100% { transform: translate(0, 0) scale(1); }
+//   25% { transform: translate(5%, -5%) scale(1.05); }
+//   50% { transform: translate(0, 10%) scale(0.95); }
+//   75% { transform: translate(-5%, -5%) scale(1); }
+// }
+// 
+// @keyframes blob2 {
+//   0%, 100% { transform: translate(0, 0) scale(1); }
+//   33% { transform: translate(5%, 5%) scale(1.1); }
+//   66% { transform: translate(-5%, 10%) scale(0.9); }
+// }
+// 
+// @keyframes blob3 {
+//   0%, 100% { transform: translate(0, 0) scale(1); }
+//   33% { transform: translate(-10%, -5%) scale(1.05); }
+//   66% { transform: translate(10%, 5%) scale(0.95); }
+// }
+// 
+// .bg-grid-pattern {
+//   background-size: 20px 20px;
+//   background-image: 
+//     linear-gradient(to right, rgba(var(--foreground-rgb), 0.05) 1px, transparent 1px),
+//     linear-gradient(to bottom, rgba(var(--foreground-rgb), 0.05) 1px, transparent 1px);
+// }
+// 
+// .animate-blob1 {
+//   animation: blob1 20s infinite linear;
+// }
+// 
+// .animate-blob2 {
+//   animation: blob2 25s infinite linear;
+// }
+// 
+// .animate-blob3 {
+//   animation: blob3 30s infinite linear;
+// }

@@ -199,10 +199,6 @@ function generateFallbackPrompt(params: PromptParams): string {
       ["app_creation"]: "App",
       ["image_generation"]: "Imagem",
       ["content_creation"]: "Conteúdo",
-      ["problem_solving"]: "Problema",
-      ["coding"]: "Código",
-      ["instruct"]: "Instrução",
-      ["explain"]: "Explicação"
     };
 
     switch (mode) {
@@ -285,18 +281,6 @@ function generateFallbackPrompt(params: PromptParams): string {
       case "content_creation":
         basePrompt += ` O prompt deve orientar a criação de conteúdo textual de qualidade, especificando o formato, tom, público-alvo e objetivos do texto.`;
         break;
-      case "problem_solving":
-        basePrompt += ` O prompt deve detalhar um problema específico, fornecer contexto relevante e solicitar uma solução estruturada e eficaz.`;
-        break;
-      case "coding":
-        basePrompt += ` O prompt deve especificar uma tarefa de programação, incluindo requisitos técnicos, linguagens, frameworks e funcionalidades esperadas.`;
-        break;
-      case "instruct":
-        basePrompt += ` O prompt deve fornecer instruções claras e sequenciais para realizar uma tarefa específica, identificando passos, ferramentas e resultados esperados.`;
-        break;
-      case "explain":
-        basePrompt += ` O prompt deve solicitar uma explicação aprofundada sobre o tópico, definindo o nível de detalhe técnico e o contexto da explicação.`;
-        break;
     }
   }
 
@@ -322,22 +306,6 @@ function generateFallbackPrompt(params: PromptParams): string {
       `Escreva um artigo informativo sobre os benefícios da meditação mindfulness para profissionais com agendas ocupadas. O texto deve ter aproximadamente 1000 palavras, incluir pesquisas científicas recentes, dicas práticas para iniciar a prática, e exemplos de exercícios de 5 minutos que podem ser feitos no local de trabalho. Use um tom informativo mas acessível, evitando jargão excessivo.`,
       `Crie um e-mail de marketing para o lançamento de um novo produto de skincare orgânico. Enfatize os ingredientes naturais, benefícios para a pele e compromisso ambiental da marca. O texto deve ser persuasivo sem ser agressivo, incluir uma chamada clara para ação e oferta de lançamento. Limite a 300 palavras e inclua sugestões para linha de assunto que maximize a taxa de abertura.`
     ],
-    ["problem_solving"]: [
-      `Analise o problema de alta rotatividade de funcionários em uma empresa de tecnologia de médio porte. Identifique possíveis causas, desde compensação até cultura organizacional. Proponha uma estratégia de retenção de talentos com medidas de curto e longo prazo, métricas para avaliar o progresso, e exemplos de empresas que resolveram problemas similares. Considere restrições orçamentárias.`,
-      `Resolva o desafio de otimizar o sistema de logística para uma rede de supermercados com 15 lojas regionais. Aborde questões de gestão de estoque, rotas de entrega e previsão de demanda. Recomende soluções tecnológicas específicas, reorganização de processos e necessidades de treinamento. Inclua métodos para medir melhorias em custo e eficiência.`
-    ],
-    ["coding"]: [
-      `Desenvolva uma API RESTful em Node.js para gerenciar um sistema de reservas de hotel. A API deve permitir consulta de disponibilidade, criar/editar/cancelar reservas e processar pagamentos. Implemente autenticação JWT, validação de dados, tratamento de erros e documentação com Swagger. Use Express, MongoDB para armazenamento e implemente testes unitários com Jest. Forneça exemplos de endpoints principais.`,
-      `Crie um aplicativo web em React que permita aos usuários visualizar e filtrar dados meteorológicos de diferentes cidades. Implemente um painel com gráficos interativos, filtros por data/local, mapa interativo e tema claro/escuro. Use hooks, context API para estado global, Styled Components para estilização e Axios para chamadas de API. Demonstre boas práticas de performance e responsividade.`
-    ],
-    ["instruct"]: [
-      `Explique como configurar um ambiente completo de desenvolvimento web para iniciantes, incluindo: instalação do VS Code, configuração do Git/GitHub, setup de Node.js, instalação de extensões essenciais e organização de workspace. Forneça comandos específicos para Windows e Mac, screenshots dos processos principais e dicas de produtividade. Adicione links para recursos complementares e ferramentas alternativas.`,
-      `Detalhe o processo para criar e lançar um podcast de qualidade profissional, desde o planejamento até distribuição. Inclua: equipamento mínimo necessário com opções de orçamento, configuração de gravação, técnicas de edição de áudio no Audacity, criação de arte para capa, registro em plataformas de distribuição e estratégias básicas de promoção.`
-    ],
-    ["explain"]: [
-      `Explique como funciona a tecnologia blockchain e suas aplicações além das criptomoedas. A explicação deve cobrir os fundamentos técnicos (blocos, hash, consenso distribuído), mas ser acessível para não-especialistas em tecnologia. Aborde casos de uso em diferentes indústrias, limitações atuais e tendências futuras. Use analogias para clarificar conceitos complexos.`,
-      `Descreva o processo de machine learning supervisionado, desde a coleta de dados até avaliação do modelo. Explique as etapas de preparação de dados, seleção de features, escolha de algoritmos, treinamento, validação e interpretação de resultados. Use linguagem clara mas tecnicamente precisa, adequada para alguém com conhecimento básico de programação mas sem experiência em ML.`
-    ]
   };
 
   // Exemplos específicos para estilos de imagem se o modo for image_generation
@@ -499,10 +467,6 @@ async function generatePromptWithGemini(params: PromptParams) {
       ["app_creation"]: params.language === "english" ? "app development" : "desenvolvimento de aplicativo",
       ["image_generation"]: params.language === "english" ? "image generation" : "geração de imagem",
       ["content_creation"]: params.language === "english" ? "content creation" : "criação de conteúdo",
-      ["problem_solving"]: params.language === "english" ? "problem solving" : "resolução de problemas",
-      ["coding"]: params.language === "english" ? "programming" : "programação",
-      ["instruct"]: params.language === "english" ? "step-by-step instructions" : "instruções passo a passo",
-      ["explain"]: params.language === "english" ? "detailed explanation" : "explicação detalhada"
     };
 
     // Definições específicas para cada estilo de imagem

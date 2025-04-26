@@ -15,9 +15,11 @@ const safetySettings: SafetySetting[] = [
 ];
 
 // Definir validModes manualmente pois PromptMode é um type alias
-const validModes: PromptMode[] = [
-  "app_creation", "image_generation", "content_creation", 
-  "problem_solving", "coding", "instruct", "explain"
+const validModes = [
+  "app_creation", 
+  "image_generation", 
+  "content_creation",
+  // Removido "problem_solving", "coding", "instruct", "explain"
 ];
 const validTones = Object.values(Tone);
 const validComplexities = Object.values(Complexity);
@@ -51,7 +53,7 @@ export async function POST(req: Request) {
     const languageInstruction = language === 'english' ? 'English' : 'Portuguese';
 
     // Prompt para a IA fazer o parsing
-    const systemPrompt = `You are an AI assistant specialized in parsing user instructions for an AI prompt generator. Analyze the user's instruction and extract the core parameters. Respond ONLY with a valid JSON object containing the extracted parameters: 'keywords' (string, the main topic), 'mode' (string, one of ${JSON.stringify(validModes)}), 'tone' (string, optional, one of ${JSON.stringify(validTones)}), 'complexity' (string, optional, one of ${JSON.stringify(validComplexities)}), and 'imageStyle' (string, optional, relevant visual styles for image generation mode only). If a parameter cannot be determined, omit it from the JSON. Ensure the extracted values for mode, tone, and complexity exactly match one of the provided valid options. The keywords should capture the essence of the request. The response language for keywords/imageStyle should match the user's language (${languageInstruction}).`;
+    const systemPrompt = `You are an AI assistant specialized in parsing user instructions for an AI prompt generator. Analyze the user's instruction and extract the core parameters. Respond ONLY with a valid JSON object containing the extracted parameters: 'keywords' (string, the main topic), 'mode' (string, one of ${JSON.stringify(validModes)}), 'tone' (string, one of ${JSON.stringify(Object.values(Tone))}), 'complexity' (string, one of ${JSON.stringify(Object.values(Complexity))}), and 'imageStyle' (string, if applicable for image generation mode). If a parameter is not clearly specified, omit it from the JSON. The keywords should be concise and represent the core subject. The language of the keywords should match the user's language (${languageInstruction}).`;
     
     const userPrompt = `Parse the following instruction:
 "${instruction.trim()}"`;

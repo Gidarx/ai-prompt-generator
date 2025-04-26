@@ -60,22 +60,4 @@ export const templates: SimplePromptTemplate[] = [
     defaultComplexity: Complexity.DETAILED,
     imageStyle: 'realistic'
   },
-  {
-    id: 'explain-concept',
-    name: 'Explicar Conceito Complexo',
-    description: 'Gera uma explicação clara e concisa sobre um conceito técnico ou complexo.',
-    mode: 'explain' as PromptMode,
-    defaultKeywords: 'Explique [CONCEITO] para [PÚBLICO-ALVO]',
-    defaultTone: Tone.NEUTRAL,
-    defaultComplexity: Complexity.MODERATE,
-  },
-  {
-    id: 'python-function',
-    name: 'Função Python Simples',
-    description: 'Cria o código para uma função Python que realiza uma tarefa específica.',
-    mode: 'coding' as PromptMode,
-    defaultKeywords: 'Função Python que [DESCRIÇÃO DA TAREFA]',
-    defaultTone: Tone.TECHNICAL,
-    defaultComplexity: Complexity.SIMPLE, // O prompt pode ser simples, a função nem tanto
-  }
 ]; 

@@ -5,13 +5,12 @@ import { Toaster } from "@/components/ui/toaster"
 
 export default function Home() {
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      <BackgroundGradient />
+    <BackgroundGradient>
       <Header />
-      <main className="container mx-auto py-10 px-4 md:px-6 relative z-10">
+      <main className="container mx-auto px-4 py-8 md:py-12 lg:py-16 relative">
         <PromptEngineer />
       </main>
       <Toaster />
-    </div>
+    </BackgroundGradient>
   )
 }

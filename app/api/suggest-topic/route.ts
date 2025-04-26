@@ -13,15 +13,12 @@ const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
 ];
 
-// Mapeamento de modo para descrição (para o prompt da IA)
-const modeDescriptions: Record<PromptMode, string> = {
-  app_creation: "desenvolvimento de aplicativo",
-  image_generation: "geração de imagem",
-  content_creation: "criação de conteúdo (artigo, post, etc.)",
-  problem_solving: "resolução de um problema específico",
-  coding: "programação ou desenvolvimento de código",
-  instruct: "criação de instruções passo a passo",
-  explain: "explicação detalhada de um conceito",
+// Mapeia modos para descrições mais úteis para a IA
+const modeDescriptions: Record<string, string> = {
+  app_creation: "criação de um aplicativo",
+  image_generation: "geração de uma imagem",
+  content_creation: "criação de conteúdo textual",
+  // Removido problem_solving, coding, instruct, explain
 };
 
 /**

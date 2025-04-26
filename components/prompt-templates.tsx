@@ -19,10 +19,6 @@ const modeLabels: Record<PromptMode, string> = {
   app_creation: "App",
   image_generation: "Imagem",
   content_creation: "Conteúdo",
-  problem_solving: "Problema",
-  coding: "Código",
-  instruct: "Instrução",
-  explain: "Explicação",
 };
 
 export function PromptTemplates({ templates, onSelectTemplate }: PromptTemplatesProps) {
@@ -31,8 +27,6 @@ export function PromptTemplates({ templates, onSelectTemplate }: PromptTemplates
   const categories = [
     { id: "content_creation", name: "Conteúdo" },
     { id: "image_generation", name: "Imagem" },
-    { id: "coding", name: "Código" },
-    { id: "explain", name: "Explicação" },
   ]
 
   const filteredTemplates = selectedCategory

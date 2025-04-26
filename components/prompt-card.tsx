@@ -187,17 +187,22 @@ export function PromptCard({ platform, prompt, onSaveEdit }: PromptCardProps) {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }} 
+      animate={{ opacity: 1, y: 0 }} 
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="rounded-xl overflow-hidden backdrop-blur-sm border border-primary/10 shadow-lg"
+    >
       <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className={`flex items-center justify-center h-9 w-9 rounded-xl ${getPlatformColor()}`}>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2.5">
+            <div className={`flex items-center justify-center h-10 w-10 rounded-xl ${getPlatformColor()} shadow-md`}>
               {getPlatformIcon()}
             </div>
-            <h3 className="text-lg font-medium">{getPlatformName()}</h3>
+            <h3 className="text-lg font-semibold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">{getPlatformName()}</h3>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {isEditing ? (
               // Buttons for Edit Mode
               <>
@@ -206,7 +211,7 @@ export function PromptCard({ platform, prompt, onSaveEdit }: PromptCardProps) {
                   size="sm"
                   rounded="full"
                   onClick={handleSave}
-                  className="gap-1.5 transition-all bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:bg-green-500/20 dark:text-green-400 dark:hover:bg-green-500/30"
+                  className="gap-1.5 transition-all duration-300 bg-green-500/15 text-green-600 hover:bg-green-500/25 hover:shadow-md dark:bg-green-500/20 dark:text-green-400 dark:hover:bg-green-500/30"
                   disabled={editedPrompt === prompt} // Disable if no changes
                 >
                   <Save className="h-4 w-4" />
@@ -217,7 +222,7 @@ export function PromptCard({ platform, prompt, onSaveEdit }: PromptCardProps) {
                   size="icon-sm"
                   rounded="full"
                   onClick={handleCancel}
-                  className="h-9 w-9 transition-all bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
+                  className="h-9 w-9 transition-all duration-300 bg-red-500/15 text-red-600 hover:bg-red-500/25 hover:shadow-md dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -231,7 +236,7 @@ export function PromptCard({ platform, prompt, onSaveEdit }: PromptCardProps) {
                     size="icon-sm"
                     rounded="full"
                     onClick={() => setIsEditing(true)}
-                    className="h-9 w-9 transition-all"
+                    className="h-9 w-9 transition-all duration-300 hover:bg-primary/10 hover:shadow-md"
                     title="Editar Prompt"
                   >
                     <Pencil className="h-4 w-4" />
@@ -242,7 +247,7 @@ export function PromptCard({ platform, prompt, onSaveEdit }: PromptCardProps) {
                   size="sm"
                   rounded="full"
                   onClick={copyToClipboard}
-                  className="gap-1.5 transition-all"
+                  className="gap-1.5 transition-all duration-300 hover:bg-primary/10 hover:shadow-md"
                 >
                   {copied ? (
                     <>
@@ -262,23 +267,23 @@ export function PromptCard({ platform, prompt, onSaveEdit }: PromptCardProps) {
                       variant="modern"
                       size="icon-sm"
                       rounded="full"
-                      className="h-9 w-9 transition-all"
+                      className="h-9 w-9 transition-all duration-300 hover:bg-primary/10 hover:shadow-md"
                     >
                       <Share2 className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="glass border-0 shadow-xl">
-                    <DropdownMenuItem onClick={sharePrompt} className="gap-3 cursor-pointer py-2 px-3 focus:bg-accent/10">
-                      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                  <DropdownMenuContent align="end" className="glass border-0 shadow-xl backdrop-blur-md">
+                    <DropdownMenuItem onClick={sharePrompt} className="gap-3 cursor-pointer py-2.5 px-3 focus:bg-accent/10 transition-colors duration-200">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400 shadow-sm">
                         <Share2 className="h-4 w-4" />
                       </div>
-                      <span>Compartilhar</span>
+                      <span className="font-medium">Compartilhar</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={downloadAsText} className="gap-3 cursor-pointer py-2 px-3 focus:bg-accent/10">
-                      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                    <DropdownMenuItem onClick={downloadAsText} className="gap-3 cursor-pointer py-2.5 px-3 focus:bg-accent/10 transition-colors duration-200">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 shadow-sm">
                         <Download className="h-4 w-4" />
                       </div>
-                      <span>Baixar como texto</span>
+                      <span className="font-medium">Baixar como texto</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -292,13 +297,13 @@ export function PromptCard({ platform, prompt, onSaveEdit }: PromptCardProps) {
             ref={textareaRef}
             value={editedPrompt}
             onChange={(e) => setEditedPrompt(e.target.value)}
-            className={`bg-gradient-to-b ${getPlatformGradient()} rounded-xl p-5 text-sm leading-relaxed border border-primary/40 focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all duration-200 shadow-sm min-h-[200px] max-h-[500px] resize-y`}
+            className={`bg-gradient-to-b ${getPlatformGradient()} rounded-xl p-5 text-sm leading-relaxed border border-primary/40 focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all duration-300 shadow-md hover:shadow-lg min-h-[200px] max-h-[500px] resize-y`}
             placeholder="Edite o prompt aqui..."
           />
         ) : (
           <div
             ref={promptRef}
-            className={`bg-gradient-to-b ${getPlatformGradient()} rounded-xl p-5 max-h-[500px] overflow-y-auto shadow-sm prompt-content`}
+            className={`bg-gradient-to-b ${getPlatformGradient()} rounded-xl p-5 max-h-[500px] overflow-y-auto shadow-md hover:shadow-lg transition-all duration-300 prompt-content`}
           >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
@@ -316,17 +321,57 @@ export function PromptCard({ platform, prompt, onSaveEdit }: PromptCardProps) {
                       language={language}
                       PreTag="div"
                       wrapLongLines={true}
-                      className="rounded-md my-4"
+                      className="rounded-md my-4 shadow-lg border border-primary/5"
                       {...props}
                     >
                       {String(children).replace(/\n$/, '')}
                     </SyntaxHighlighter>
                   ) : (
-                    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                    <code className="bg-muted/70 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
                       {children}
                     </code>
                   );
-                }
+                },
+                p: ({node, children, ...props}) => (
+                  <p className="mb-4 text-foreground/90 leading-relaxed" {...props}>
+                    {children}
+                  </p>
+                ),
+                h1: ({node, children, ...props}) => (
+                  <h1 className="text-2xl font-bold mb-4 text-foreground mt-2 pb-1 border-b border-primary/10" {...props}>
+                    {children}
+                  </h1>
+                ),
+                h2: ({node, children, ...props}) => (
+                  <h2 className="text-xl font-bold mb-3 text-foreground mt-1" {...props}>
+                    {children}
+                  </h2>
+                ),
+                h3: ({node, children, ...props}) => (
+                  <h3 className="text-lg font-semibold mb-3 text-foreground" {...props}>
+                    {children}
+                  </h3>
+                ),
+                ul: ({node, children, ...props}) => (
+                  <ul className="mb-4 ml-6 list-disc space-y-1 text-foreground/90" {...props}>
+                    {children}
+                  </ul>
+                ),
+                ol: ({node, children, ...props}) => (
+                  <ol className="mb-4 ml-6 list-decimal space-y-1 text-foreground/90" {...props}>
+                    {children}
+                  </ol>
+                ),
+                li: ({node, children, ...props}) => (
+                  <li className="leading-relaxed" {...props}>
+                    {children}
+                  </li>
+                ),
+                blockquote: ({node, children, ...props}) => (
+                  <blockquote className="border-l-4 border-primary/30 pl-4 py-1 my-4 bg-primary/5 rounded-r-md" {...props}>
+                    {children}
+                  </blockquote>
+                ),
               }}
             >
               {editedPrompt}
