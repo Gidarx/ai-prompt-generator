@@ -26,7 +26,7 @@ export const templates: SimplePromptTemplate[] = [
     id: 'blog-outline',
     name: 'Esboço de Post de Blog',
     description: 'Gera uma estrutura de tópicos para um artigo de blog sobre um determinado assunto.',
-    mode: 'content_creation' as PromptMode, // Usando type assertion
+    mode: 'website_creation' as PromptMode, // Usando type assertion
     defaultKeywords: 'Esboço para post de blog sobre [TEMA]',
     defaultTone: Tone.PROFESSIONAL,
     defaultComplexity: Complexity.MODERATE,
@@ -35,7 +35,7 @@ export const templates: SimplePromptTemplate[] = [
     id: 'short-social-media-post',
     name: 'Post Curto para Mídia Social',
     description: 'Cria um post rápido e engajante para mídias sociais.',
-    mode: 'content_creation' as PromptMode,
+    mode: 'website_creation' as PromptMode,
     defaultKeywords: 'Post curto sobre [ASSUNTO] para [PLATAFORMA]',
     defaultTone: Tone.FRIENDLY,
     defaultComplexity: Complexity.SIMPLE,

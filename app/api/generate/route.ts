@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 // Inicializa o cliente do Google Gemini (API Key é lida aqui)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
 // Modelo padrão a ser usado se nenhum for especificado na requisição
-const DEFAULT_MODEL_ID = 'gemini-2.0-flash-thinking-exp-01-21'; // ATUALIZADO para o novo padrão
+const DEFAULT_MODEL_ID = 'gemini-1.5-flash'; // Modelo mais estável e amplamente disponível
 
 // Configurações de segurança para bloquear conteúdo nocivo
 const safetySettings = [
@@ -198,7 +198,7 @@ function generateFallbackPrompt(params: PromptParams): string {
     const modeMap: Record<string, string> = {
       ["app_creation"]: "App",
       ["image_generation"]: "Imagem",
-      ["content_creation"]: "Conteúdo",
+      ["website_creation"]: "Site",
     };
 
     switch (mode) {
@@ -278,8 +278,11 @@ function generateFallbackPrompt(params: PromptParams): string {
           }
         }
         break;
-      case "content_creation":
-        basePrompt += ` O prompt deve orientar a criação de conteúdo textual de qualidade, especificando o formato, tom, público-alvo e objetivos do texto.`;
+      case "website_creation":
+        basePrompt += ` O prompt deve orientar a criação de um site moderno e profissional, especificando design, funcionalidades, tecnologias, experiência do usuário e objetivos do projeto.`;
+        break;
+      case "logo_creation":
+        basePrompt += ` O prompt deve orientar a criação de um logo moderno e profissional, especificando estilo visual, elementos de design, tipografia, cores e conceitos de marca baseados nas tendências 2025.`;
         break;
     }
   }
@@ -302,9 +305,19 @@ function generateFallbackPrompt(params: PromptParams): string {
       `Um retrato analógico de uma cantora idol coreana com beleza e charme de tirar o fôlego. Ela possui uma silhueta feminina bonita e curvas moderadas. Com cabelo ondulado como de modelo, seus olhos penetrantes, rosto e corpo olham diretamente para a câmera. Usa brincos e roupas retrô de hip-hop, com logotipo da Nike sutilmente posicionado na jaqueta. Fotografado com Contax T2 e filme Kodak Gold 200 contra um cenário de rua dos anos 80. Capturando um pôr do sol suave e natural, com luz indireta criando highlights cremosos e sombras equilibradas. Paleta de cores nostálgica com amarelos profundos, vermelhos e laranjas suaves, verdes suaves e azuis próximos ao turquesa. Granulosidade moderada e claridade natural.`,
       `Um close-up espontâneo e nebuloso de uma jovem mulher coreana deslumbrante — etérea, quase sobrenatural em sua beleza, com maxilar definido, olhos grandes e cabelo loiro. Seu olhar é distante e sonhador, como se estivesse entre o riso e uma memória, olhando ligeiramente além da câmera com olhos suaves e desfocados. Sua maquiagem está borrada, não bagunçada — mais como um borrão noturno de glitter e cor, batom desbotado nas bordas, máscara formando halos sob seus olhos como aquarela. Pele úmida e brilhante de suor ou calor do verão, com mechas de cabelo grudadas delicadamente em seu rosto. Capturada em meio a um momento, boca ligeiramente aberta como se estivesse prestes a falar ou rir. O flash a ilumina como se fosse o centro de um sonho — o fundo se dissolvendo em sombras suaves. Fotografada com um celular com grão de filme vintage e leve desfoque de movimento.`
     ],
-    ["content_creation"]: [
-      `Escreva um artigo informativo sobre os benefícios da meditação mindfulness para profissionais com agendas ocupadas. O texto deve ter aproximadamente 1000 palavras, incluir pesquisas científicas recentes, dicas práticas para iniciar a prática, e exemplos de exercícios de 5 minutos que podem ser feitos no local de trabalho. Use um tom informativo mas acessível, evitando jargão excessivo.`,
-      `Crie um e-mail de marketing para o lançamento de um novo produto de skincare orgânico. Enfatize os ingredientes naturais, benefícios para a pele e compromisso ambiental da marca. O texto deve ser persuasivo sem ser agressivo, incluir uma chamada clara para ação e oferta de lançamento. Limite a 300 palavras e inclua sugestões para linha de assunto que maximize a taxa de abertura.`
+    ["website_creation"]: [
+      `Crie um site moderno e responsivo para uma startup de tecnologia financeira (fintech). O site deve incluir: página inicial com hero section impactante, seção sobre a empresa, demonstração do produto, depoimentos de clientes, blog e página de contato. Use design minimalista com cores azul e branco, tipografia moderna (Inter ou similar), animações sutis e micro-interações. Tecnologias: Next.js, Tailwind CSS, Framer Motion. Foque em conversão e experiência do usuário otimizada para mobile-first.`,
+      `Desenvolva um portfólio online para um designer UX/UI freelancer. Estrutura: header com navegação sticky, hero section com apresentação pessoal, galeria de projetos com filtros por categoria, seção sobre habilidades e ferramentas, depoimentos de clientes, blog pessoal e formulário de contato. Design: estilo moderno e clean, uso criativo de whitespace, tipografia elegante, paleta de cores neutras com acentos coloridos. Inclua animações de scroll, hover effects e transições suaves. Otimizado para SEO e performance.`,
+      `Construa um e-commerce moderno para uma marca de roupas sustentáveis. Funcionalidades: catálogo de produtos com filtros avançados, carrinho de compras, checkout seguro, sistema de avaliações, wishlist, programa de fidelidade e blog sobre sustentabilidade. Design: interface limpa e intuitiva, fotografia de alta qualidade, cores terrosas, tipografia legível. Tecnologias: React/Next.js, Stripe para pagamentos, headless CMS. Foque em storytelling da marca e experiência de compra fluida.`,
+      `Desenvolva um site institucional para uma clínica médica especializada. Seções: página inicial com agendamento online, sobre a clínica, equipe médica, especialidades, convênios aceitos, localização e contato. Design profissional e confiável com cores azul e branco, tipografia clara, ícones médicos sutis. Funcionalidades: sistema de agendamento integrado, chat online, área do paciente, blog com artigos de saúde. Responsivo, acessível (WCAG) e otimizado para busca local.`,
+      `Crie um site para uma agência de marketing digital. Estrutura: hero section com proposta de valor clara, serviços oferecidos, cases de sucesso com métricas, sobre a agência, equipe, blog e formulário de orçamento. Design: moderno e dinâmico, gradientes sutis, animações de dados, cores vibrantes (roxo/laranja). Inclua calculadora de ROI interativa, depoimentos em vídeo, certificações e prêmios. Tecnologias: Next.js, Tailwind, animações com Framer Motion, analytics avançado.`
+    ],
+    ["logo_creation"]: [
+      `Crie um logo minimalista moderno para uma startup de tecnologia sustentável chamada "EcoTech". O logo deve combinar elementos tecnológicos com natureza, usando formas geométricas limpas e uma paleta de verde e azul. Estilo vetorial flat design, sem gradientes, com tipografia sans-serif moderna e condensada. O símbolo deve funcionar bem em pequenos tamanhos e ser facilmente reconhecível. Inclua uma versão horizontal e vertical, considerando uso em aplicativos móveis e redes sociais.`,
+      `Desenvolva um logo elegante para uma marca de cosméticos premium "Lumina Beauty". Use estilo minimalista com foco em tipografia sofisticada, incorporando elementos dourados sutis. O design deve transmitir luxo e feminilidade através de formas orgânicas suaves e espaço negativo inteligente. Paleta: dourado, rosa suave e branco. Tipografia serif moderna com ligaduras personalizadas. O logo deve funcionar em embalagens, digital e impressos de alta qualidade.`,
+      `Crie um logo ousado e geométrico para uma academia de crossfit "Iron Core". Use formas angulares e linhas grossas que transmitam força e energia. Paleta de cores: preto, vermelho intenso e cinza. Tipografia sans-serif condensada e pesada. Incorpore elementos abstratos que remetam a equipamentos de treino ou movimento atlético. O design deve ser impactante em camisetas, equipamentos e sinalização da academia.`,
+      `Desenvolva um monograma sofisticado para um escritório de advocacia "Silva & Associados". Use as iniciais S&A de forma elegante e profissional, com elementos que remetam à justiça de forma sutil. Paleta: azul marinho, dourado e branco. Tipografia serif clássica com detalhes refinados. O logo deve transmitir confiança, tradição e excelência, funcionando bem em papelaria corporativa e materiais digitais.`,
+      `Crie um logo orgânico e natural para uma marca de alimentos saudáveis "Pure Harvest". Use formas fluidas inspiradas na natureza, com elementos que remetam a folhas, grãos ou crescimento. Paleta de verdes naturais, marrom terra e bege. Estilo hand-drawn moderno com toques artesanais. A tipografia deve ser amigável e legível, transmitindo saúde e sustentabilidade. Adequado para embalagens de produtos orgânicos e marketing digital.`
     ],
   };
 
@@ -466,7 +479,8 @@ async function generatePromptWithGemini(params: PromptParams) {
     const modeMap: Record<string, string> = {
       ["app_creation"]: params.language === "english" ? "app development" : "desenvolvimento de aplicativo",
       ["image_generation"]: params.language === "english" ? "image generation" : "geração de imagem",
-      ["content_creation"]: params.language === "english" ? "content creation" : "criação de conteúdo",
+      ["website_creation"]: params.language === "english" ? "website creation" : "criação de site",
+      ["logo_creation"]: params.language === "english" ? "logo creation" : "criação de logo",
     };
 
     // Definições específicas para cada estilo de imagem
@@ -502,6 +516,55 @@ async function generatePromptWithGemini(params: PromptParams) {
         : "ESTILO MIDJOURNEY, apresentando imagens extremamente detalhadas e de alta qualidade com composição impecável e iluminação dramática. Use texturas ricas, cores vibrantes com equilíbrio perfeito de contraste e pontos focais imaculados. O estilo deve incluir detalhes ultra-nítidos em áreas-chave, mantendo transições suaves e sonhadoras em outras. Aplique gradação de cores cinematográfica com destaques e sombras sofisticados. Elementos característicos importantes incluem sutis distorções de lente, profundidade de campo perfeita, efeitos atmosféricos (iluminação volumétrica, partículas, névoa) e alto alcance dinâmico. Cada elemento deve parecer meticulosamente elaborado com hiper-realismo estilizado que equilibra qualidades fotográficas com aprimoramentos artísticos. As paletas de cores devem ser ricas, mas harmoniosas, com atenção cuidadosa aos tons complementares. Inclua palavras-chave como 'altamente detalhado', 'ultra alta resolução', 'fotorrealista', '8k', 'iluminação cinematográfica' para reforçar a estética Midjourney."
     };
 
+    // Definições específicas para cada estilo de logo baseadas nas tendências 2025
+    const logoStyleDefinitions: Record<string, string> = {
+      "minimalist_modern": params.language === "english"
+        ? "MINIMALIST MODERN style with clean geometric shapes, ample white space, simple typography, and limited color palette (maximum 2-3 colors). Focus on essential elements only, avoiding unnecessary details. Use contemporary sans-serif fonts and ensure scalability across all sizes."
+        : "estilo MINIMALISTA MODERNO com formas geométricas limpas, amplo espaço em branco, tipografia simples e paleta de cores limitada (máximo 2-3 cores). Foque apenas em elementos essenciais, evitando detalhes desnecessários. Use fontes sans-serif contemporâneas e garanta escalabilidade em todos os tamanhos.",
+      "bold_geometric": params.language === "english"
+        ? "BOLD GEOMETRIC style with strong angular shapes, thick lines, high contrast colors, and oversized typography. Use primary geometric forms like circles, triangles, and squares. Emphasize visual impact and memorability with confident, structured design elements."
+        : "estilo GEOMÉTRICO OUSADO com formas angulares fortes, linhas grossas, cores de alto contraste e tipografia oversized. Use formas geométricas primárias como círculos, triângulos e quadrados. Enfatize impacto visual e memorabilidade com elementos de design confiantes e estruturados.",
+      "flat_design": params.language === "english"
+        ? "FLAT DESIGN style with no gradients, shadows, or 3D effects. Use solid colors, simple shapes, and clean lines. Focus on clarity and simplicity with modern color schemes and straightforward iconography. Ensure perfect scalability for digital applications."
+        : "estilo DESIGN PLANO sem gradientes, sombras ou efeitos 3D. Use cores sólidas, formas simples e linhas limpas. Foque em clareza e simplicidade com esquemas de cores modernos e iconografia direta. Garanta escalabilidade perfeita para aplicações digitais.",
+      "vector_clean": params.language === "english"
+        ? "VECTOR CLEAN style with crisp, scalable paths and smooth curves. Use precise geometric construction with clean edges and professional finish. Emphasize technical precision and mathematical perfection in all design elements."
+        : "estilo VETORIAL LIMPO com caminhos nítidos e escaláveis e curvas suaves. Use construção geométrica precisa com bordas limpas e acabamento profissional. Enfatize precisão técnica e perfeição matemática em todos os elementos de design.",
+      "typography_focused": params.language === "english"
+        ? "TYPOGRAPHY FOCUSED style where the text is the main design element. Use custom lettering, unique font treatments, creative spacing, and typographic hierarchy. No additional symbols or icons - let the typography tell the complete brand story."
+        : "estilo FOCADO EM TIPOGRAFIA onde o texto é o principal elemento de design. Use lettering personalizado, tratamentos únicos de fonte, espaçamento criativo e hierarquia tipográfica. Sem símbolos ou ícones adicionais - deixe a tipografia contar toda a história da marca.",
+      "monogram": params.language === "english"
+        ? "MONOGRAM style combining initials or letters in an elegant, interlocked design. Use sophisticated typography with custom ligatures, balanced proportions, and refined details. Create a mark that works as both a symbol and readable text."
+        : "estilo MONOGRAMA combinando iniciais ou letras em um design elegante e entrelaçado. Use tipografia sofisticada com ligaduras personalizadas, proporções equilibradas e detalhes refinados. Crie uma marca que funcione tanto como símbolo quanto como texto legível.",
+      "badge_emblem": params.language === "english"
+        ? "BADGE/EMBLEM style with circular, shield, or crest-like structure. Include decorative elements, borders, and traditional craftsmanship details. Use vintage-inspired typography and classic proportions while maintaining modern clarity."
+        : "estilo EMBLEMA/BADGE com estrutura circular, escudo ou brasão. Inclua elementos decorativos, bordas e detalhes de artesanato tradicional. Use tipografia inspirada no vintage e proporções clássicas mantendo clareza moderna.",
+      "organic_natural": params.language === "english"
+        ? "ORGANIC NATURAL style with flowing, curved lines inspired by nature. Use earth tones, leaf shapes, water forms, or growth patterns. Emphasize sustainability and environmental consciousness through natural textures and organic forms."
+        : "estilo ORGÂNICO NATURAL com linhas fluidas e curvas inspiradas na natureza. Use tons terrosos, formas de folhas, formas de água ou padrões de crescimento. Enfatize sustentabilidade e consciência ambiental através de texturas naturais e formas orgânicas.",
+      "tech_futuristic": params.language === "english"
+        ? "TECH FUTURISTIC style with digital elements, circuit patterns, angular geometry, and high-tech aesthetics. Use modern color schemes like electric blue, neon green, or metallic silver. Incorporate elements that suggest innovation and cutting-edge technology."
+        : "estilo TECNOLÓGICO FUTURISTA com elementos digitais, padrões de circuito, geometria angular e estética high-tech. Use esquemas de cores modernos como azul elétrico, verde neon ou prata metálica. Incorpore elementos que sugiram inovação e tecnologia de ponta.",
+      "hand_drawn": params.language === "english"
+        ? "HAND DRAWN style with organic, imperfect lines that suggest human craftsmanship. Use sketch-like qualities, slight irregularities, and artisanal feel. Maintain legibility while embracing the authentic, personal touch of hand-created design."
+        : "estilo DESENHADO À MÃO com linhas orgânicas e imperfeitas que sugerem artesanato humano. Use qualidades de esboço, pequenas irregularidades e sensação artesanal. Mantenha legibilidade abraçando o toque autêntico e pessoal do design criado à mão.",
+      "gradient_modern": params.language === "english"
+        ? "GRADIENT MODERN style with smooth color transitions, contemporary color combinations, and dynamic visual flow. Use subtle gradients that enhance depth without overwhelming the design. Focus on modern color trends and sophisticated blending techniques."
+        : "estilo GRADIENTE MODERNO com transições suaves de cores, combinações de cores contemporâneas e fluxo visual dinâmico. Use gradientes sutis que realcem profundidade sem sobrecarregar o design. Foque em tendências de cores modernas e técnicas sofisticadas de mistura.",
+      "negative_space": params.language === "english"
+        ? "NEGATIVE SPACE style that uses empty areas to create secondary images or meanings. Design clever visual tricks where the space between elements forms additional symbols. Emphasize the relationship between positive and negative space for maximum impact."
+        : "estilo ESPAÇO NEGATIVO que usa áreas vazias para criar imagens ou significados secundários. Projete truques visuais inteligentes onde o espaço entre elementos forma símbolos adicionais. Enfatize a relação entre espaço positivo e negativo para máximo impacto.",
+      "retro_vintage": params.language === "english"
+        ? "RETRO VINTAGE style with nostalgic elements, classic typography, and period-appropriate color schemes. Use design elements from specific eras (50s, 60s, 70s, 80s) while maintaining contemporary functionality and clarity."
+        : "estilo RETRÔ VINTAGE com elementos nostálgicos, tipografia clássica e esquemas de cores apropriados para a época. Use elementos de design de eras específicas (anos 50, 60, 70, 80) mantendo funcionalidade e clareza contemporâneas.",
+      "3d_dimensional": params.language === "english"
+        ? "3D DIMENSIONAL style with depth, shadows, highlights, and three-dimensional effects. Use isometric perspectives, layered elements, and realistic lighting. Create visual depth while maintaining logo functionality and scalability."
+        : "estilo 3D DIMENSIONAL com profundidade, sombras, destaques e efeitos tridimensionais. Use perspectivas isométricas, elementos em camadas e iluminação realista. Crie profundidade visual mantendo funcionalidade e escalabilidade do logo.",
+      "line_art": params.language === "english"
+        ? "LINE ART style using only outlines and strokes without filled areas. Use varying line weights, clean paths, and minimalist approach. Focus on essential contours and shapes that define the brand through linear elements only."
+        : "estilo ARTE LINEAR usando apenas contornos e traços sem áreas preenchidas. Use pesos de linha variados, caminhos limpos e abordagem minimalista. Foque em contornos e formas essenciais que definam a marca apenas através de elementos lineares."
+    };
+
     // Definir as restrições de tamanho com base no parâmetro length
     const lengthRestriction = params.length === 'short' 
       ? (params.language === "english" 
@@ -518,6 +581,7 @@ async function generatePromptWithGemini(params: PromptParams) {
       ? `You are an AI assistant specializing in ${modeMap[params.mode] || 'content generation and planning'}.
 Your task is to analyze the user's request and generate a detailed and well-structured response in ${outputLanguage}, according to the specified mode.
 For "app development" mode, structure the response with sections like Objective, Features, Screen/Component Structure, Suggested Technologies, and Next Steps.
+For "website creation" mode, structure the response with sections like Project Overview, Site Structure, Design Guidelines, Key Features, Technology Stack, SEO & Performance, and Implementation Steps. Focus on modern web development trends 2025: responsive design, mobile-first approach, accessibility (WCAG), Core Web Vitals optimization, micro-interactions, clean minimalist design, and user experience best practices.
 For other modes, adapt the structure as appropriate for the task (e.g., detailed description for images, complete text for content, clear steps for instructions, etc.).
 IMPORTANT: Use Markdown formatting to structure your response. Use headings (##, ###), bullet lists (*), numbered lists (1., 2.), **bold** for emphasis, *italic* for important terms, and \`code\` when necessary. Use tables with | to present tabular information when appropriate.
 Be practical, direct to the point, and provide useful information.
@@ -526,6 +590,7 @@ ${lengthRestriction}`
       : `Você é um assistente de IA especialista em ${modeMap[params.mode] || 'geração de conteúdo e planejamento'}.
 Sua tarefa é analisar a solicitação do usuário e gerar uma resposta detalhada e bem estruturada em ${outputLanguage}, de acordo com o modo especificado.
 Para o modo "desenvolvimento de aplicativo", estruture a resposta com seções como Objetivo, Funcionalidades, Estrutura de Telas/Componentes, Tecnologias Sugeridas e Próximos Passos.
+Para o modo "criação de site", estruture a resposta com seções como Visão Geral do Projeto, Estrutura do Site, Diretrizes de Design, Funcionalidades Principais, Stack Tecnológico, SEO & Performance, e Passos de Implementação. Foque nas tendências modernas de desenvolvimento web 2025: design responsivo, abordagem mobile-first, acessibilidade (WCAG), otimização Core Web Vitals, micro-interações, design minimalista limpo, e melhores práticas de experiência do usuário.
 Para outros modos, adapte a estrutura conforme apropriado para a tarefa (ex: descrição detalhada para imagem, texto completo para conteúdo, passos claros para instruções, etc.).
 IMPORTANTE: Utilize formatação Markdown para estruturar sua resposta. Use cabeçalhos (##, ###), listas com marcadores (*), listas numeradas (1., 2.), **negrito** para ênfase, *itálico* para termos importantes, e \`código\` quando necessário. Use tabelas com | para apresentar informações tabulares quando apropriado.
 Seja prático, direto ao ponto e forneça informações úteis.

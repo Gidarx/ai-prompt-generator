@@ -21,6 +21,10 @@ import { VersionHistory } from "@/components/version-history"
 import { AIAssistantPanel } from "@/components/ai-assistant-panel"
 import { CommandMenu } from "@/components/command-menu"
 import { PromptTemplates } from "@/components/prompt-templates"
+import { PromptQualityAnalyzer } from "@/components/prompt-quality-analyzer"
+import { IntelligentSuggestions } from "@/components/intelligent-suggestions"
+import { RealTimeMetrics } from "@/components/real-time-metrics"
+import { ModelSelector } from "@/components/model-selector"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { usePromptHistory } from "@/lib/hooks/use-prompt-history"
 import { useUserPreferences } from "@/lib/hooks/use-user-preferences"
@@ -64,6 +68,7 @@ import {
   AlignCenterHorizontal,
   AlignEndHorizontal,
   AlignJustify,
+  BarChart3,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -92,13 +97,13 @@ interface ParsedParams {
 
 // Manter schema sem complexity
 const formSchema = z.object({
-  keywords: z.string().min(1, { message: "Palavras-chave são obrigatórias." }).optional(), 
+  keywords: z.string().min(1, { message: "Palavras-chave são obrigatórias." }).optional(),
   context: z.string().optional(),
   tone: z.nativeEnum(Tone),
   length: z.enum(["short", "medium", "long"]).optional(),
   includeExamples: z.boolean(),
   mode: z.enum([
-    "app_creation", "image_generation", "content_creation", 
+    "app_creation", "image_generation", "website_creation", "logo_creation",
   ]),
   imageStyle: z.string().optional(),
   negativePrompt: z.string().optional(),
@@ -112,7 +117,7 @@ type FormValues = {
   tone: Tone;
   length?: "short" | "medium" | "long";
   includeExamples: boolean;
-  mode: "app_creation" | "image_generation" | "content_creation";
+  mode: "app_creation" | "image_generation" | "website_creation" | "logo_creation";
   imageStyle?: string;
   negativePrompt?: string;
   modelId?: string;
@@ -148,19 +153,26 @@ const imageStyles = [
   { value: "midjourney_style", label: "Estilo Midjourney" },
 ];
 
-// --- Lista de Modelos Gemini Disponíveis (Adicionando modelos 2.5) --- 
-const geminiModels = [
-  { value: "gemini-2.0-flash-thinking-exp-01-21", label: "Gemini 2.0 Flash Exp (Padrão)" },
-  // Modelos 2.5 solicitados (VERIFICAR VALIDADE NA API)
-  { value: "gemini-2.5-flash-preview-04-17", label: "Gemini 2.5 Flash Preview (04-17)" }, 
-  { value: "gemini-2.5-pro-preview-03-25", label: "Gemini 2.5 Pro Preview (03-25)" },
-  // Outros modelos existentes
-  { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" }, 
-  { value: "gemini-1.5-pro-preview-0409", label: "Gemini 1.5 Pro Preview (0409)" }, 
-  { value: "gemini-1.0-pro", label: "Gemini 1.0 Pro" }, 
-  { value: "gemini-1.5-flash-preview-0514", label: "Gemini 1.5 Flash Preview (0514)" }, 
-  { value: "gemini-pro", label: "Gemini Pro (gen 1 via API v1)" }, 
+// Lista de estilos de logo baseados nas tendências 2025
+const logoStyles = [
+  { value: "minimalist_modern", label: "Minimalista Moderno" },
+  { value: "bold_geometric", label: "Geométrico Ousado" },
+  { value: "flat_design", label: "Design Plano" },
+  { value: "vector_clean", label: "Vetorial Limpo" },
+  { value: "typography_focused", label: "Focado em Tipografia" },
+  { value: "monogram", label: "Monograma" },
+  { value: "badge_emblem", label: "Emblema/Badge" },
+  { value: "organic_natural", label: "Orgânico/Natural" },
+  { value: "tech_futuristic", label: "Tecnológico/Futurista" },
+  { value: "hand_drawn", label: "Desenhado à Mão" },
+  { value: "gradient_modern", label: "Gradiente Moderno" },
+  { value: "negative_space", label: "Espaço Negativo" },
+  { value: "retro_vintage", label: "Retrô/Vintage" },
+  { value: "3d_dimensional", label: "3D Dimensional" },
+  { value: "line_art", label: "Arte Linear" },
 ];
+
+// Modelos são agora carregados dinamicamente via API
 
 // Mapeamento para rótulos amigáveis de Complexidade
 const complexityLabels: Record<Complexity, string> = {
@@ -229,7 +241,7 @@ export function PromptEngineer() {
       tone: preferences.defaultTone || Tone.PROFESSIONAL,
       length: preferences.defaultLength || "medium",
       includeExamples: preferences.defaultIncludeExamples !== undefined ? preferences.defaultIncludeExamples : true,
-      mode: "content_creation",
+      mode: "logo_creation",
       imageStyle: "realistic",
       negativePrompt: "",
       modelId: undefined,
@@ -240,11 +252,11 @@ export function PromptEngineer() {
   useEffect(() => {
     if (preferencesLoaded) {
       // Garantir que defaultComplexity é tratado como número
-      const defaultComplexityValue = typeof preferences.defaultComplexity === 'number' 
-        ? preferences.defaultComplexity 
+      const defaultComplexityValue = typeof preferences.defaultComplexity === 'number'
+        ? preferences.defaultComplexity
         : 50; // Usar 50 como fallback se não for número
       setSelectedComplexity(mapNumberToComplexity(defaultComplexityValue));
-      
+
       // Resetar form SEM complexity
       form.reset({
         keywords: form.getValues("keywords") || "",
@@ -258,7 +270,7 @@ export function PromptEngineer() {
         modelId: form.getValues("modelId"),
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preferencesLoaded, preferences]); // Remover form das dependências se causar loops
 
   useEffect(() => {
@@ -285,10 +297,10 @@ export function PromptEngineer() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ( e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-           e.preventDefault();
-           generateButtonRef.current?.click();
+          e.preventDefault();
+          generateButtonRef.current?.click();
         }
         return
       }
@@ -326,41 +338,41 @@ export function PromptEngineer() {
       console.log("Refinando prompt...");
       params = {
         ...(generatedPrompt.params),
-        keywords: undefined, 
+        keywords: undefined,
         previousPrompt: generatedPrompt.genericPrompt,
         modificationRequest: modificationRequest,
-        tone: values.tone, 
+        tone: values.tone,
         complexity: selectedComplexity,
         length: values.length,
         mode: values.mode as PromptMode,
-        language: preferences.language, 
+        language: preferences.language,
         includeExamples: values.includeExamples,
-        ...(values.mode === "image_generation" && values.imageStyle && { imageStyle: values.imageStyle }),
-        ...(values.mode === "image_generation" && values.negativePrompt && { negativePrompt: values.negativePrompt.trim() }),
+        ...((values.mode === "image_generation" || values.mode === "logo_creation") && values.imageStyle && { imageStyle: values.imageStyle }),
+        ...((values.mode === "image_generation" || values.mode === "logo_creation") && values.negativePrompt && { negativePrompt: values.negativePrompt.trim() }),
         ...(values.modelId && values.modelId !== "default" && { modelId: values.modelId.trim() }),
       };
     } else {
-       // --- Modo Geração Normal --- 
-       let processedKeywords = values.keywords?.trim() || "";
-       if (!processedKeywords) {
-         setError("Por favor, insira palavras-chave ou selecione um template.");
-         setIsLoading(false);
-         return; 
-       }
-       
-       params = {
-         keywords: processedKeywords,
-         context: values.context,
-         tone: values.tone,
-         length: values.length,
-         complexity: selectedComplexity,
-         mode: values.mode as PromptMode,
-         includeExamples: values.includeExamples,
-         language: preferences.language,
-         ...(values.mode === "image_generation" && values.imageStyle && { imageStyle: values.imageStyle }),
-         ...(values.mode === "image_generation" && values.negativePrompt && { negativePrompt: values.negativePrompt.trim() }),
-         ...(values.modelId && values.modelId !== "default" && { modelId: values.modelId.trim() }),
-       };
+      // --- Modo Geração Normal --- 
+      let processedKeywords = values.keywords?.trim() || "";
+      if (!processedKeywords) {
+        setError("Por favor, insira palavras-chave ou selecione um template.");
+        setIsLoading(false);
+        return;
+      }
+
+      params = {
+        keywords: processedKeywords,
+        context: values.context,
+        tone: values.tone,
+        length: values.length,
+        complexity: selectedComplexity,
+        mode: values.mode as PromptMode,
+        includeExamples: values.includeExamples,
+        language: preferences.language,
+        ...((values.mode === "image_generation" || values.mode === "logo_creation") && values.imageStyle && { imageStyle: values.imageStyle }),
+        ...((values.mode === "image_generation" || values.mode === "logo_creation") && values.negativePrompt && { negativePrompt: values.negativePrompt.trim() }),
+        ...(values.modelId && values.modelId !== "default" && { modelId: values.modelId.trim() }),
+      };
     }
 
     console.log("Enviando para API com parâmetros:", params);
@@ -387,8 +399,8 @@ export function PromptEngineer() {
         setGeneratedPrompt(result); // Atualiza com o novo prompt (gerado ou refinado)
         setActiveTab("preview");
         // Limpar estado de refinamento após sucesso
-        setIsRefining(false); 
-        setModificationRequest(""); 
+        setIsRefining(false);
+        setModificationRequest("");
       } else {
         throw new Error("Resposta da API inválida ou vazia.");
       }
@@ -410,7 +422,8 @@ export function PromptEngineer() {
     const modeLabels: Record<string, string> = {
       "app_creation": "Criação de App",
       "image_generation": "Geração de Imagem",
-      "content_creation": "Criação de Conteúdo",
+      "website_creation": "Criação de Site",
+      "logo_creation": "Criação de Logo",
     };
     return modeLabels[mode] || mode;
   }
@@ -443,7 +456,7 @@ export function PromptEngineer() {
       linkElement.click()
       toast({ title: "Prompts exportados", description: "Seus prompts foram exportados com sucesso." })
     } catch (error) {
-       toast({ title: "Erro ao exportar", description: "Ocorreu um erro ao exportar os prompts.", variant: "destructive" })
+      toast({ title: "Erro ao exportar", description: "Ocorreu um erro ao exportar os prompts.", variant: "destructive" })
     }
   }
 
@@ -492,11 +505,11 @@ export function PromptEngineer() {
       negativePrompt: promptParams.negativePrompt,
       modelId: promptParams.modelId,
     });
-    
+
     if (promptParams.language) {
       updatePreferences({ language: promptParams.language });
     }
-    
+
     setShowVersionHistory(false);
     toast({ title: "Versão carregada", description: "Parâmetros da versão selecionada foram carregados." });
   }
@@ -508,20 +521,20 @@ export function PromptEngineer() {
     if (template.defaultTone) {
       form.setValue("tone", template.defaultTone);
     }
-    if (template.mode === "image_generation" && template.imageStyle) {
+    if ((template.mode === "image_generation" || template.mode === "logo_creation") && template.imageStyle) {
       form.setValue("imageStyle", template.imageStyle);
-    } else if (template.mode !== "image_generation") {
+    } else if (template.mode !== "image_generation" && template.mode !== "logo_creation") {
       form.setValue("imageStyle", undefined);
     }
     if (template.defaultComplexity) {
-       setSelectedComplexity(template.defaultComplexity);
+      setSelectedComplexity(template.defaultComplexity);
     }
     form.setValue("context", "");
-    
+
     setShowTemplatesDialog(false);
     setGeneratedPrompt(null);
     setActiveTab("editor");
-    
+
     toast({
       title: "Template aplicado!",
       description: `"${template.name}" carregado no editor.`,
@@ -581,19 +594,19 @@ export function PromptEngineer() {
     const currentLanguage = preferences.language;
     const currentKeywords = form.getValues("keywords"); // Pegar keywords atuais
     const currentContext = form.getValues("context"); // Pegar contexto atual
-    
+
     console.log(`Requesting topic suggestion for mode: ${currentMode}, lang: ${currentLanguage}, keywords: ${currentKeywords}`);
-    
+
     try {
       const response = await fetch("/api/suggest-topic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-           mode: currentMode, 
-           language: currentLanguage, 
-           keywords: currentKeywords, // Enviar keywords
-           context: currentContext // Enviar contexto
-         }),
+          mode: currentMode,
+          language: currentLanguage,
+          keywords: currentKeywords, // Enviar keywords
+          context: currentContext // Enviar contexto
+        }),
       });
 
       if (!response.ok) {
@@ -612,19 +625,19 @@ export function PromptEngineer() {
           description: `Clique em uma sugestão para usá-la.`,
         });
       } else {
-         // Se não vier sugestões, talvez apenas mostrar um toast?
-         console.warn("API did not return valid suggestions.");
-         toast({
-            variant: "default", // Usar default ou warning
-            title: "Nenhuma sugestão específica",
-            description: "Não foi possível gerar sugestões no momento.",
-          });
-         // Não lançar erro aqui necessariamente, apenas não mostrar sugestões
-         // throw new Error("Resposta da API de sugestão inválida.") 
+        // Se não vier sugestões, talvez apenas mostrar um toast?
+        console.warn("API did not return valid suggestions.");
+        toast({
+          variant: "default", // Usar default ou warning
+          title: "Nenhuma sugestão específica",
+          description: "Não foi possível gerar sugestões no momento.",
+        });
+        // Não lançar erro aqui necessariamente, apenas não mostrar sugestões
+        // throw new Error("Resposta da API de sugestão inválida.") 
       }
 
     } catch (err: any) {
-       // ... (tratamento de erro existente) ...
+      // ... (tratamento de erro existente) ...
     } finally {
       setIsSuggestingTopic(false);
     }
@@ -712,16 +725,16 @@ export function PromptEngineer() {
       }
 
       if (updatedFields > 0) {
-         toast({
+        toast({
           title: "Instrução Interpretada!",
           description: `Campos do formulário foram atualizados com base na sua instrução.`,
         });
       } else {
-          toast({
-            variant: "default",
-            title: "Interpretação Concluída",
-            description: "Não foram encontrados parâmetros claros para atualizar automaticamente.",
-          });
+        toast({
+          variant: "default",
+          title: "Interpretação Concluída",
+          description: "Não foram encontrados parâmetros claros para atualizar automaticamente.",
+        });
       }
 
     } catch (err: any) {
@@ -738,8 +751,8 @@ export function PromptEngineer() {
 
   return (
     <TooltipProvider>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative pb-12">
-        <Card className="lg:col-span-1 h-fit sticky top-24 shadow-lg border-primary/20 backdrop-blur-sm bg-gradient-to-br from-background to-background/90" elevated hover>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative pb-12">
+        <Card className="h-fit sticky top-24 shadow-lg border-primary/20 backdrop-blur-sm bg-gradient-to-br from-background to-background/90" elevated hover>
           <CardHeader className="pb-2 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -765,7 +778,7 @@ export function PromptEngineer() {
                       <TooltipContent side="bottom" className="bg-popover/90 backdrop-blur-md">Usar Template</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                  
+
                   <DialogContent className="max-w-3xl p-0">
                     <DialogHeader className="p-6 pb-4">
                       <DialogTitle>Selecionar Template</DialogTitle>
@@ -773,12 +786,12 @@ export function PromptEngineer() {
                     <div className="p-6 pt-0">
                       {templatesLoading ? (
                         <div className="flex justify-center items-center h-[400px]">
-                           <Loader2 className="h-8 w-8 animate-spin text-primary" /> 
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         </div>
                       ) : templatesError ? (
                         <p className="text-red-500 text-center py-4">Erro ao carregar templates: {templatesError}</p>
                       ) : templates.length > 0 ? (
-                        <PromptTemplates 
+                        <PromptTemplates
                           templates={templates}
                           onSelectTemplate={handleSelectTemplate}
                         />
@@ -821,9 +834,9 @@ export function PromptEngineer() {
                 <TooltipProvider delayDuration={100}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button 
-                        size="icon-sm" 
-                        className="rounded-full aspect-square bg-primary/8 backdrop-blur-sm border border-primary/20 shadow-sm hover:shadow-md hover:border-primary/40 hover:bg-primary/15 transition-all duration-300" 
+                      <Button
+                        size="icon-sm"
+                        className="rounded-full aspect-square bg-primary/8 backdrop-blur-sm border border-primary/20 shadow-sm hover:shadow-md hover:border-primary/40 hover:bg-primary/15 transition-all duration-300"
                         onClick={toggleAssistant}
                       >
                         <Bot className="h-4 w-4 text-primary/90" />
@@ -833,418 +846,558 @@ export function PromptEngineer() {
                     <TooltipContent side="bottom" className="bg-popover/90 backdrop-blur-md">Assistente IA</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+
+                {/* Botão Métricas */}
+                <Dialog>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DialogTrigger asChild>
+                          <Button size="icon-sm" className="rounded-full aspect-square bg-blue-500/10 backdrop-blur-sm border border-blue-500/20 shadow-sm hover:shadow-md hover:border-blue-500/40 hover:bg-blue-500/15 transition-all duration-300">
+                            <TrendingUp className="h-4 w-4 text-blue-500/90" />
+                            <span className="sr-only">Métricas</span>
+                          </Button>
+                        </DialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="bg-popover/90 backdrop-blur-md">Métricas em Tempo Real</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-blue-500" />
+                        Métricas em Tempo Real
+                      </DialogTitle>
+                    </DialogHeader>
+                    <RealTimeMetrics
+                      params={{
+                        keywords: form.watch("keywords") || "",
+                        context: form.watch("context") || "",
+                        tone: form.watch("tone"),
+                        length: form.watch("length"),
+                        complexity: selectedComplexity,
+                        mode: form.watch("mode"),
+                        includeExamples: form.watch("includeExamples"),
+                        imageStyle: form.watch("imageStyle"),
+                        negativePrompt: form.watch("negativePrompt"),
+                        language: preferences.language
+                      }}
+                      className="border-0 shadow-none bg-transparent"
+                    />
+                  </DialogContent>
+                </Dialog>
+
+                {/* Botão Análise de Qualidade */}
+                <Dialog>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DialogTrigger asChild>
+                          <Button size="icon-sm" className="rounded-full aspect-square bg-emerald-500/10 backdrop-blur-sm border border-emerald-500/20 shadow-sm hover:shadow-md hover:border-emerald-500/40 hover:bg-emerald-500/15 transition-all duration-300">
+                            <BarChart3 className="h-4 w-4 text-emerald-500/90" />
+                            <span className="sr-only">Análise</span>
+                          </Button>
+                        </DialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="bg-popover/90 backdrop-blur-md">Análise de Qualidade</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5 text-emerald-500" />
+                        Análise de Qualidade
+                      </DialogTitle>
+                    </DialogHeader>
+                    <PromptQualityAnalyzer 
+                      params={{
+                        keywords: form.watch("keywords") || "",
+                        context: form.watch("context") || "",
+                        tone: form.watch("tone"),
+                        length: form.watch("length"),
+                        complexity: selectedComplexity,
+                        mode: form.watch("mode"),
+                        includeExamples: form.watch("includeExamples"),
+                        imageStyle: form.watch("imageStyle"),
+                        negativePrompt: form.watch("negativePrompt"),
+                        language: preferences.language
+                      }}
+                      className="border-0 shadow-none bg-transparent"
+                    />
+                  </DialogContent>
+                </Dialog>
+
+                {/* Botão Sugestões Inteligentes */}
+                <Dialog>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DialogTrigger asChild>
+                          <Button size="icon-sm" className="rounded-full aspect-square bg-violet-500/10 backdrop-blur-sm border border-violet-500/20 shadow-sm hover:shadow-md hover:border-violet-500/40 hover:bg-violet-500/15 transition-all duration-300">
+                            <Sparkles className="h-4 w-4 text-violet-500/90" />
+                            <span className="sr-only">Sugestões</span>
+                          </Button>
+                        </DialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="bg-popover/90 backdrop-blur-md">Sugestões Inteligentes</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-violet-500" />
+                        Sugestões Inteligentes
+                      </DialogTitle>
+                    </DialogHeader>
+                    <IntelligentSuggestions
+                      params={{
+                        keywords: form.watch("keywords") || "",
+                        context: form.watch("context") || "",
+                        tone: form.watch("tone"),
+                        length: form.watch("length"),
+                        complexity: selectedComplexity,
+                        mode: form.watch("mode"),
+                        includeExamples: form.watch("includeExamples"),
+                        imageStyle: form.watch("imageStyle"),
+                        negativePrompt: form.watch("negativePrompt"),
+                        language: preferences.language
+                      }}
+                      onApplySuggestion={(field, value) => {
+                        if (field === 'keywords' || field === 'context' || field === 'negativePrompt') {
+                          form.setValue(field as any, value)
+                        } else if (field === 'tone') {
+                          form.setValue('tone', value as Tone)
+                        } else if (field === 'imageStyle') {
+                          form.setValue('imageStyle', value)
+                        }
+                      }}
+                      className="border-0 shadow-none bg-transparent"
+                    />
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
             <div className="h-px bg-gradient-to-r from-transparent via-muted-foreground/20 to-transparent" />
           </CardHeader>
           <Form {...form}>
             <fieldset disabled={isLoading || isSuggestingTopic || isParsingInstruction} className="group">
-             <form onSubmit={form.handleSubmit(onSubmit)}>
-               <CardContent className="space-y-6 pt-3">
-                 <FormField
-                  control={form.control}
-                  name="mode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
-                        <FormLabel className="font-medium">Modo de Prompt</FormLabel>
-                      </div>
-                      <FormControl>
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger className="bg-background/80 backdrop-blur-sm border-muted-foreground/20 focus:ring-primary/30 transition-all duration-200 hover:border-primary/30">
-                            <SelectValue placeholder="Selecione o modo do prompt" />
-                          </SelectTrigger>
-                          <SelectContent className="backdrop-blur-md">
-                            <SelectItem value="app_creation" className="hover:bg-primary/5 transition-colors">
-                              <div className="flex items-center gap-2">
-                                <div className="bg-emerald-500/20 p-1.5 rounded-md">
-                                  <Code className="h-3.5 w-3.5 text-emerald-600" />
-                                </div>
-                                <span>Criação de App</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="image_generation" className="hover:bg-primary/5 transition-colors">
-                              <div className="flex items-center gap-2">
-                                <div className="bg-violet-500/20 p-1.5 rounded-md">
-                                  <ImageIcon className="h-3.5 w-3.5 text-violet-600" />
-                                </div>
-                                <span>Geração de Imagem</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="content_creation" className="hover:bg-primary/5 transition-colors">
-                              <div className="flex items-center gap-2">
-                                <div className="bg-blue-500/20 p-1.5 rounded-md">
-                                  <FileText className="h-3.5 w-3.5 text-blue-600" />
-                                </div>
-                                <span>Criação de Conteúdo</span>
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormDescription className="text-xs text-muted-foreground/80">
-                        Como o prompt será utilizado, determinando o formato e estrutura.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="keywords"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
-                        <FormLabel className="font-medium">Palavras-chave / Tópico</FormLabel>
-                      </div>
-                      <div className="flex gap-2 items-start">
+              <form onSubmit={form.handleSubmit(onSubmit)}>
+                <CardContent className="space-y-6 pt-3">
+                  <FormField
+                    control={form.control}
+                    name="mode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                          <FormLabel className="font-medium">Modo de Prompt</FormLabel>
+                        </div>
                         <FormControl>
-                          <Textarea 
-                            placeholder="Digite palavras-chave ou uma instrução completa... Ex: Crie uma imagem de um astronauta em Marte, estilo cartoon"
-                            className="bg-background/80 backdrop-blur-sm border-muted-foreground/20 focus-visible:ring-primary/30 min-h-[80px] resize-none disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:border-primary/30 transition-colors"
-                            disabled={isRefining || isLoading || isSuggestingTopic || isParsingInstruction}
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger className="bg-background/80 backdrop-blur-sm border-muted-foreground/20 focus:ring-primary/30 transition-all duration-200 hover:border-primary/30">
+                              <SelectValue placeholder="Selecione o modo do prompt" />
+                            </SelectTrigger>
+                            <SelectContent className="backdrop-blur-md">
+                              <SelectItem value="app_creation" className="hover:bg-primary/5 transition-colors">
+                                <div className="flex items-center gap-2">
+                                  <div className="bg-emerald-500/20 p-1.5 rounded-md">
+                                    <Code className="h-3.5 w-3.5 text-emerald-600" />
+                                  </div>
+                                  <span>Criação de App</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="image_generation" className="hover:bg-primary/5 transition-colors">
+                                <div className="flex items-center gap-2">
+                                  <div className="bg-violet-500/20 p-1.5 rounded-md">
+                                    <ImageIcon className="h-3.5 w-3.5 text-violet-600" />
+                                  </div>
+                                  <span>Geração de Imagem</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="website_creation" className="hover:bg-primary/5 transition-colors">
+                                <div className="flex items-center gap-2">
+                                  <div className="bg-blue-500/20 p-1.5 rounded-md">
+                                    <LandPlot className="h-3.5 w-3.5 text-blue-600" />
+                                  </div>
+                                  <span>Criação de Site</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="logo_creation" className="hover:bg-primary/5 transition-colors">
+                                <div className="flex items-center gap-2">
+                                  <div className="bg-orange-500/20 p-1.5 rounded-md">
+                                    <Palette className="h-3.5 w-3.5 text-orange-600" />
+                                  </div>
+                                  <span>Criação de Logo</span>
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormDescription className="text-xs text-muted-foreground/80">
+                          Como o prompt será utilizado, determinando o formato e estrutura.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="keywords"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                          <FormLabel className="font-medium">Palavras-chave / Tópico</FormLabel>
+                        </div>
+                        <div className="flex gap-2 items-start">
+                          <FormControl>
+                            <Textarea
+                              placeholder="Digite palavras-chave ou uma instrução completa... Ex: Crie uma imagem de um astronauta em Marte, estilo cartoon"
+                              className="bg-background/80 backdrop-blur-sm border-muted-foreground/20 focus-visible:ring-primary/30 min-h-[80px] resize-none disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:border-primary/30 transition-colors"
+                              disabled={isRefining || isLoading || isSuggestingTopic || isParsingInstruction}
+                              {...field}
+                            />
+                          </FormControl>
+                          <div className="flex flex-col gap-1.5">
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={handleParseInstruction}
+                                    className="shrink-0 h-10 w-10 rounded-lg border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 disabled:opacity-50 transition-all shadow-sm hover:shadow-md"
+                                    disabled={isParsingInstruction || isLoading || isRefining || !(form.watch("keywords")?.trim() ?? "").length || (form.watch("keywords")?.trim() ?? "").length < 10}
+                                  >
+                                    {isParsingInstruction ? (
+                                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                    ) : (
+                                      <FileText className="h-4 w-4 text-primary" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="bg-popover/90 backdrop-blur-md">Interpretar Instrução (Beta)</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={suggestPromptTopic}
+                                    className="shrink-0 h-10 w-10 rounded-lg border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 disabled:opacity-50 transition-all shadow-sm hover:shadow-md"
+                                    disabled={isSuggestingTopic || isLoading || isParsingInstruction || isRefining}
+                                  >
+                                    {isSuggestingTopic ? (
+                                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                    ) : (
+                                      <Sparkles className="h-4 w-4 text-primary" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="bg-popover/90 backdrop-blur-md">Sugerir tema (via IA)</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </div>
+                        <FormDescription className="text-xs text-muted-foreground/80">
+                          {isRefining
+                            ? "Refinando prompt anterior. Edite os parâmetros abaixo se necessário."
+                            : "Insira palavras-chave ou uma instrução completa (e clique em Interpretar)."
+                          }
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="context"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                          <FormLabel className="font-medium">Contexto (Opcional)</FormLabel>
+                        </div>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Ex: O público-alvo são pequenas empresas..."
+                            className="resize-none bg-background/80 backdrop-blur-sm border-muted-foreground/20 focus-visible:ring-primary/30 shadow-sm hover:border-primary/30 transition-colors"
                             {...field}
                           />
                         </FormControl>
-                        <div className="flex flex-col gap-1.5">
-                          <TooltipProvider delayDuration={100}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={handleParseInstruction}
-                                  className="shrink-0 h-10 w-10 rounded-lg border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 disabled:opacity-50 transition-all shadow-sm hover:shadow-md"
-                                  disabled={isParsingInstruction || isLoading || isRefining || !(form.watch("keywords")?.trim() ?? "").length || (form.watch("keywords")?.trim() ?? "").length < 10}
-                                >
-                                  {isParsingInstruction ? (
-                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                  ) : (
-                                    <FileText className="h-4 w-4 text-primary" />
-                                  )}
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent className="bg-popover/90 backdrop-blur-md">Interpretar Instrução (Beta)</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          
-                          <TooltipProvider delayDuration={100}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={suggestPromptTopic}
-                                  className="shrink-0 h-10 w-10 rounded-lg border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 disabled:opacity-50 transition-all shadow-sm hover:shadow-md"
-                                  disabled={isSuggestingTopic || isLoading || isParsingInstruction || isRefining} 
-                                >
-                                  {isSuggestingTopic ? (
-                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                  ) : (
-                                    <Sparkles className="h-4 w-4 text-primary" />
-                                  )} 
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent className="bg-popover/90 backdrop-blur-md">Sugerir tema (via IA)</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </div>
-                      <FormDescription className="text-xs text-muted-foreground/80">
-                        {isRefining 
-                          ? "Refinando prompt anterior. Edite os parâmetros abaixo se necessário."
-                          : "Insira palavras-chave ou uma instrução completa (e clique em Interpretar)."
-                        }
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="context"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
-                        <FormLabel className="font-medium">Contexto (Opcional)</FormLabel>
-                      </div>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Ex: O público-alvo são pequenas empresas..."
-                          className="resize-none bg-background/80 backdrop-blur-sm border-muted-foreground/20 focus-visible:ring-primary/30 shadow-sm hover:border-primary/30 transition-colors"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription className="text-xs text-muted-foreground/80">
-                        Forneça informações adicionais para refinar o prompt.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <div className="grid grid-cols-2 gap-4">
-                   <FormField
-                    control={form.control}
-                    name="tone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
-                          <FormLabel className="font-medium">Tom</FormLabel>
-                        </div>
-                         <Select onValueChange={field.onChange} value={field.value}>
-                           <FormControl>
-                             <SelectTrigger className="bg-background/80 backdrop-blur-sm border-muted-foreground/20 focus:ring-primary/30 hover:border-primary/30 transition-colors shadow-sm">
-                               <SelectValue placeholder="Selecione o tom" />
-                             </SelectTrigger>
-                           </FormControl>
-                           <SelectContent className="backdrop-blur-md">
-                             {Object.values(Tone).map((toneValue) => (
-                               <SelectItem key={toneValue} value={toneValue} className="hover:bg-primary/5 transition-colors">
-                                 {(() => {
-                                   // Usar ícones Lucide em vez de emojis
-                                   let icon;
-                                   let iconBgColor;
-                                   
-                                   switch(toneValue) {
-                                     case "professional":
-                                       icon = <Briefcase className="h-3.5 w-3.5 text-blue-600" />;
-                                       iconBgColor = "bg-blue-500/20";
-                                       break;
-                                     case "casual":
-                                       icon = <Coffee className="h-3.5 w-3.5 text-orange-600" />;
-                                       iconBgColor = "bg-orange-500/20";
-                                       break;
-                                     case "creative":
-                                       icon = <Palette className="h-3.5 w-3.5 text-purple-600" />;
-                                       iconBgColor = "bg-purple-500/20";
-                                       break;
-                                     case "technical":
-                                       icon = <Wrench className="h-3.5 w-3.5 text-gray-600" />;
-                                       iconBgColor = "bg-gray-500/20";
-                                       break;
-                                     case "neutral":
-                                       icon = <Scale className="h-3.5 w-3.5 text-gray-600" />;
-                                       iconBgColor = "bg-gray-500/20";
-                                       break;
-                                     case "formal":
-                                       icon = <FileText className="h-3.5 w-3.5 text-indigo-600" />;
-                                       iconBgColor = "bg-indigo-500/20";
-                                       break;
-                                     case "friendly":
-                                       icon = <Heart className="h-3.5 w-3.5 text-red-600" />;
-                                       iconBgColor = "bg-red-500/20";
-                                       break;
-                                     case "enthusiastic":
-                                       icon = <Rocket className="h-3.5 w-3.5 text-amber-600" />;
-                                       iconBgColor = "bg-amber-500/20";
-                                       break;
-                                     case "authoritative":
-                                       icon = <LandPlot className="h-3.5 w-3.5 text-teal-600" />;
-                                       iconBgColor = "bg-teal-500/20";
-                                       break;
-                                     default:
-                                       icon = <MessageSquare className="h-3.5 w-3.5 text-primary" />;
-                                       iconBgColor = "bg-primary/20";
-                                   }
-                                   
-                                   return (
-                                     <span className="flex items-center">
-                                       <div className={`${iconBgColor} p-1.5 rounded-md mr-2`}>
-                                         {icon}
-                                       </div>
-                                       {toneValue.charAt(0).toUpperCase() + toneValue.slice(1)}
-                                     </span>
-                                   );
-                                 })()}
-                               </SelectItem>
-                             ))}
-                           </SelectContent>
-                         </Select>
+                        <FormDescription className="text-xs text-muted-foreground/80">
+                          Forneça informações adicionais para refinar o prompt.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                   <FormField
-                    control={form.control}
-                    name="length"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
-                          <FormLabel className="font-medium">Tamanho</FormLabel>
-                        </div>
-                         <Select
-                           value={field.value}
-                           onValueChange={field.onChange}
-                         >
-                           <FormControl>
-                             <SelectTrigger className="rounded-xl">
-                               <SelectValue placeholder="Selecione o comprimento" />
-                             </SelectTrigger>
-                           </FormControl>
-                           <SelectContent className="backdrop-blur-md">
-                             {["short", "medium", "long"].map((lengthValue) => (
-                               <SelectItem key={lengthValue} value={lengthValue} className="hover:bg-primary/5 transition-colors">
-                                 {(() => {
-                                   // Usar ícones Lucide em vez de emojis
-                                   let icon;
-                                   let iconBgColor;
-                                   
-                                   switch(lengthValue) {
-                                     case "short":
-                                       icon = <AlignStartHorizontal className="h-3.5 w-3.5 text-green-600" />;
-                                       iconBgColor = "bg-green-500/20";
-                                       break;
-                                     case "medium":
-                                       icon = <AlignCenterHorizontal className="h-3.5 w-3.5 text-amber-600" />;
-                                       iconBgColor = "bg-amber-500/20";
-                                       break;
-                                     case "long":
-                                       icon = <AlignEndHorizontal className="h-3.5 w-3.5 text-blue-600" />;
-                                       iconBgColor = "bg-blue-500/20";
-                                       break;
-                                     default:
-                                       icon = <AlignJustify className="h-3.5 w-3.5 text-primary" />;
-                                       iconBgColor = "bg-primary/20";
-                                   }
-                                   
-                                   return (
-                                     <span className="flex items-center">
-                                       <div className={`${iconBgColor} p-1.5 rounded-md mr-2`}>
-                                         {icon}
-                                       </div>
-                                       {lengthValue === "short" ? "Curto" : 
-                                        lengthValue === "medium" ? "Médio" : 
-                                        lengthValue === "long" ? "Longo" : 
-                                        lengthValue.charAt(0).toUpperCase() + lengthValue.slice(1)}
-                                     </span>
-                                   );
-                                 })()}
-                               </SelectItem>
-                             ))}
-                           </SelectContent>
-                         </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="tone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                            <FormLabel className="font-medium">Tom</FormLabel>
+                          </div>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-background/80 backdrop-blur-sm border-muted-foreground/20 focus:ring-primary/30 hover:border-primary/30 transition-colors shadow-sm">
+                                <SelectValue placeholder="Selecione o tom" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="backdrop-blur-md">
+                              {Object.values(Tone).map((toneValue) => (
+                                <SelectItem key={toneValue} value={toneValue} className="hover:bg-primary/5 transition-colors">
+                                  {(() => {
+                                    // Usar ícones Lucide em vez de emojis
+                                    let icon;
+                                    let iconBgColor;
 
-                {/* Seletor de Idioma */}
-                <div className="flex items-center justify-between rounded-lg border border-muted-foreground/20 p-4 shadow-sm bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-shadow">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
-                      <FormLabel className="text-base font-medium">Idioma da Resposta</FormLabel>
-                    </div>
-                    <FormDescription className="text-xs text-muted-foreground/80">
-                      Selecione em qual idioma a IA deve responder
-                    </FormDescription>
+                                    switch (toneValue) {
+                                      case "professional":
+                                        icon = <Briefcase className="h-3.5 w-3.5 text-blue-600" />;
+                                        iconBgColor = "bg-blue-500/20";
+                                        break;
+                                      case "casual":
+                                        icon = <Coffee className="h-3.5 w-3.5 text-orange-600" />;
+                                        iconBgColor = "bg-orange-500/20";
+                                        break;
+                                      case "creative":
+                                        icon = <Palette className="h-3.5 w-3.5 text-purple-600" />;
+                                        iconBgColor = "bg-purple-500/20";
+                                        break;
+                                      case "technical":
+                                        icon = <Wrench className="h-3.5 w-3.5 text-gray-600" />;
+                                        iconBgColor = "bg-gray-500/20";
+                                        break;
+                                      case "neutral":
+                                        icon = <Scale className="h-3.5 w-3.5 text-gray-600" />;
+                                        iconBgColor = "bg-gray-500/20";
+                                        break;
+                                      case "formal":
+                                        icon = <FileText className="h-3.5 w-3.5 text-indigo-600" />;
+                                        iconBgColor = "bg-indigo-500/20";
+                                        break;
+                                      case "friendly":
+                                        icon = <Heart className="h-3.5 w-3.5 text-red-600" />;
+                                        iconBgColor = "bg-red-500/20";
+                                        break;
+                                      case "enthusiastic":
+                                        icon = <Rocket className="h-3.5 w-3.5 text-amber-600" />;
+                                        iconBgColor = "bg-amber-500/20";
+                                        break;
+                                      case "authoritative":
+                                        icon = <LandPlot className="h-3.5 w-3.5 text-teal-600" />;
+                                        iconBgColor = "bg-teal-500/20";
+                                        break;
+                                      default:
+                                        icon = <MessageSquare className="h-3.5 w-3.5 text-primary" />;
+                                        iconBgColor = "bg-primary/20";
+                                    }
+
+                                    return (
+                                      <span className="flex items-center">
+                                        <div className={`${iconBgColor} p-1.5 rounded-md mr-2`}>
+                                          {icon}
+                                        </div>
+                                        {toneValue.charAt(0).toUpperCase() + toneValue.slice(1)}
+                                      </span>
+                                    );
+                                  })()}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="length"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                            <FormLabel className="font-medium">Tamanho</FormLabel>
+                          </div>
+                          <Select
+                            value={field.value}
+                            onValueChange={field.onChange}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="rounded-xl">
+                                <SelectValue placeholder="Selecione o comprimento" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="backdrop-blur-md">
+                              {["short", "medium", "long"].map((lengthValue) => (
+                                <SelectItem key={lengthValue} value={lengthValue} className="hover:bg-primary/5 transition-colors">
+                                  {(() => {
+                                    // Usar ícones Lucide em vez de emojis
+                                    let icon;
+                                    let iconBgColor;
+
+                                    switch (lengthValue) {
+                                      case "short":
+                                        icon = <AlignStartHorizontal className="h-3.5 w-3.5 text-green-600" />;
+                                        iconBgColor = "bg-green-500/20";
+                                        break;
+                                      case "medium":
+                                        icon = <AlignCenterHorizontal className="h-3.5 w-3.5 text-amber-600" />;
+                                        iconBgColor = "bg-amber-500/20";
+                                        break;
+                                      case "long":
+                                        icon = <AlignEndHorizontal className="h-3.5 w-3.5 text-blue-600" />;
+                                        iconBgColor = "bg-blue-500/20";
+                                        break;
+                                      default:
+                                        icon = <AlignJustify className="h-3.5 w-3.5 text-primary" />;
+                                        iconBgColor = "bg-primary/20";
+                                    }
+
+                                    return (
+                                      <span className="flex items-center">
+                                        <div className={`${iconBgColor} p-1.5 rounded-md mr-2`}>
+                                          {icon}
+                                        </div>
+                                        {lengthValue === "short" ? "Curto" :
+                                          lengthValue === "medium" ? "Médio" :
+                                            lengthValue === "long" ? "Longo" :
+                                              lengthValue.charAt(0).toUpperCase() + lengthValue.slice(1)}
+                                      </span>
+                                    );
+                                  })()}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                  <Select 
-                    value={preferences.language} 
-                    onValueChange={(value) => {
-                      const newLanguage = value as Language;
-                      updatePreferences({ language: newLanguage });
-                      
-                      // Mostrar mensagem de confirmação
-                      const message = newLanguage === "portuguese" 
-                        ? "As respostas serão geradas em Português" 
-                        : "As respostas serão geradas em Inglês";
-                        
-                      toast({
-                        title: "Idioma alterado",
-                        description: message,
-                      });
-                    }}
-                  >
-                    <SelectTrigger className="w-[180px] bg-background/80 backdrop-blur-sm border-primary/20 hover:bg-primary/5 focus:ring-primary/30 transition-colors">
-                      <SelectValue placeholder="Selecione o idioma" />
-                    </SelectTrigger>
-                    <SelectContent className="backdrop-blur-md">
-                      <SelectItem value="portuguese" className="hover:bg-primary/5 transition-colors">
-                        <span className="flex items-center">
-                          <span className="mr-2 text-lg">🇧🇷</span> Português
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="english" className="hover:bg-primary/5 transition-colors">
-                        <span className="flex items-center">
-                          <span className="mr-2 text-lg">🇺🇸</span> Inglês
-                        </span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                {/* --- Campo Negative Prompt (condicional) --- */}
-                {form.watch("mode") === "image_generation" && (
-                  <FormField
-                    control={form.control}
-                    name="negativePrompt"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center gap-2 mb-1.5">
-                           {/* Ícone opcional */}
-                           <div className="h-1.5 w-1.5 rounded-full bg-destructive/70" />
-                           <FormLabel className="font-medium">Prompt Negativo (Opcional)</FormLabel>
-                         </div>
-                         <FormControl>
-                           <Textarea
-                             placeholder="Elementos a evitar na imagem... Ex: texto, baixa qualidade, deformado"
-                             className="resize-none bg-background/80 backdrop-blur-sm border-muted-foreground/20 focus-visible:ring-destructive/30 shadow-sm hover:border-destructive/30 transition-colors"
-                             {...field}
-                             value={field.value ?? ""} // Garantir que seja string
-                           />
-                         </FormControl>
-                         <FormDescription className="text-xs text-muted-foreground/80">
-                           Descreva o que NÃO deve aparecer na imagem gerada.
-                         </FormDescription>
-                         <FormMessage />
-                       </FormItem>
-                     )}
-                   />
-                 )}
+                  {/* Seletor de Idioma */}
+                  <div className="flex items-center justify-between rounded-lg border border-muted-foreground/20 p-4 shadow-sm bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-shadow">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                        <FormLabel className="text-base font-medium">Idioma da Resposta</FormLabel>
+                      </div>
+                      <FormDescription className="text-xs text-muted-foreground/80">
+                        Selecione em qual idioma a IA deve responder
+                      </FormDescription>
+                    </div>
+                    <Select
+                      value={preferences.language}
+                      onValueChange={(value) => {
+                        const newLanguage = value as Language;
+                        updatePreferences({ language: newLanguage });
 
-                <div>
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    className="p-0 h-auto text-primary/70 hover:text-primary font-medium transition-colors group"
-                    onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-                  >
-                    Opções Avançadas
-                    <span className="ml-1 group-hover:translate-x-0.5 transition-transform">
-                      {showAdvancedOptions ? <ChevronUp className="h-4 w-4 inline" /> : <ChevronDown className="h-4 w-4 inline" />}
-                    </span>
-                  </Button>
-                </div>
-                <AnimatePresence>
-                  {showAdvancedOptions && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3, ease: "easeOut" }}
-                      className="space-y-6 overflow-hidden"
+                        // Mostrar mensagem de confirmação
+                        const message = newLanguage === "portuguese"
+                          ? "As respostas serão geradas em Português"
+                          : "As respostas serão geradas em Inglês";
+
+                        toast({
+                          title: "Idioma alterado",
+                          description: message,
+                        });
+                      }}
                     >
-                        <FormItem className="bg-gradient-to-r from-primary/3 to-transparent p-4 rounded-lg border border-primary/10 shadow-sm"> 
+                      <SelectTrigger className="w-[180px] bg-background/80 backdrop-blur-sm border-primary/20 hover:bg-primary/5 focus:ring-primary/30 transition-colors">
+                        <SelectValue placeholder="Selecione o idioma" />
+                      </SelectTrigger>
+                      <SelectContent className="backdrop-blur-md">
+                        <SelectItem value="portuguese" className="hover:bg-primary/5 transition-colors">
+                          <span className="flex items-center">
+                            <span className="mr-2 text-lg">🇧🇷</span> Português
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="english" className="hover:bg-primary/5 transition-colors">
+                          <span className="flex items-center">
+                            <span className="mr-2 text-lg">🇺🇸</span> Inglês
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* --- Campo Negative Prompt (condicional) --- */}
+                  {(form.watch("mode") === "image_generation" || form.watch("mode") === "logo_creation") && (
+                    <FormField
+                      control={form.control}
+                      name="negativePrompt"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            {/* Ícone opcional */}
+                            <div className="h-1.5 w-1.5 rounded-full bg-destructive/70" />
+                            <FormLabel className="font-medium">Prompt Negativo (Opcional)</FormLabel>
+                          </div>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Elementos a evitar na imagem... Ex: texto, baixa qualidade, deformado"
+                              className="resize-none bg-background/80 backdrop-blur-sm border-muted-foreground/20 focus-visible:ring-destructive/30 shadow-sm hover:border-destructive/30 transition-colors"
+                              {...field}
+                              value={field.value ?? ""} // Garantir que seja string
+                            />
+                          </FormControl>
+                          <FormDescription className="text-xs text-muted-foreground/80">
+                            Descreva o que NÃO deve aparecer na imagem gerada.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  <div>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="p-0 h-auto text-primary/70 hover:text-primary font-medium transition-colors group"
+                      onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                    >
+                      Opções Avançadas
+                      <span className="ml-1 group-hover:translate-x-0.5 transition-transform">
+                        {showAdvancedOptions ? <ChevronUp className="h-4 w-4 inline" /> : <ChevronDown className="h-4 w-4 inline" />}
+                      </span>
+                    </Button>
+                  </div>
+                  <AnimatePresence>
+                    {showAdvancedOptions && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                        className="space-y-6 overflow-hidden"
+                      >
+                        <FormItem className="bg-gradient-to-r from-primary/3 to-transparent p-4 rounded-lg border border-primary/10 shadow-sm">
                           <div className="flex items-center gap-2 mb-2">
                             <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
                             <FormLabel className="font-medium">Complexidade</FormLabel>
                           </div>
-                          <Select 
+                          <Select
                             onValueChange={(value) => setSelectedComplexity(value as Complexity)}
-                            value={selectedComplexity} 
+                            value={selectedComplexity}
                             disabled={isLoading}
-                           > 
-                            <FormControl> 
+                          >
+                            <FormControl>
                               <SelectTrigger className="bg-background/80 backdrop-blur-sm border-muted-foreground/20 focus:ring-primary/30 hover:border-primary/30 transition-colors shadow-sm">
                                 <SelectValue placeholder="Selecione o nível..." />
                               </SelectTrigger>
@@ -1273,8 +1426,8 @@ export function PromptEngineer() {
                           <FormDescription className="text-xs text-muted-foreground/80 mt-1.5">
                             Define o nível de detalhe da resposta da IA.
                           </FormDescription>
-                        </FormItem> 
-                        
+                        </FormItem>
+
                         <FormField
                           control={form.control}
                           name="includeExamples"
@@ -1300,390 +1453,374 @@ export function PromptEngineer() {
                           )}
                         />
 
-                        {/* Seleção de Modelo - Só mostrar para GPT-4 e SE o modo não for image_generation */}
-                        {form.watch("mode") !== "image_generation" && (
-                          <FormField
-                            control={form.control}
-                            name="modelId"
-                            render={({ field }) => (
-                              <FormItem className="bg-gradient-to-r from-primary/3 to-transparent p-4 rounded-lg border border-primary/10 shadow-sm">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
-                                  <FormLabel className="font-medium">Modelo da IA</FormLabel>
-                                </div>
-                                <Select
-                                  value={field.value || "default"}
+                        {/* Seleção de Modelo Gemini */}
+                        <FormField
+                          control={form.control}
+                          name="modelId"
+                          render={({ field }) => (
+                            <FormItem className="bg-gradient-to-r from-primary/3 to-transparent p-4 rounded-lg border border-primary/10 shadow-sm">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                                <FormLabel className="font-medium">Modelo Gemini</FormLabel>
+                              </div>
+                              <FormControl>
+                                <ModelSelector
+                                  value={field.value}
                                   onValueChange={field.onChange}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger className="bg-background/80 backdrop-blur-sm border-muted-foreground/20 focus:ring-primary/30 hover:border-primary/30 transition-colors shadow-sm">
-                                      <SelectValue placeholder="Selecione o modelo" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent className="backdrop-blur-md max-h-[300px]">
-                                    <SelectItem value="default" className="hover:bg-primary/5 transition-colors">
-                                      <div className="flex items-center gap-2">
-                                        <div className="bg-primary/20 p-1.5 rounded-md">
-                                          <BrainCircuit className="h-3.5 w-3.5 text-primary/80" />
-                                        </div>
-                                        <span>Padrão (recomendado)</span>
-                                      </div>
-                                    </SelectItem>
-                                    <SelectSeparator />
-                                    {geminiModels.map((model) => (
-                                      <SelectItem key={model.value} value={model.value} className="hover:bg-primary/5 transition-colors">
-                                        <div className="flex items-center gap-2">
-                                          <div className="bg-accent/20 p-1.5 rounded-md">
-                                            <Sparkles className="h-3.5 w-3.5 text-accent/80" />
-                                          </div>
-                                          <span>{model.label}</span>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <FormDescription className="text-xs text-muted-foreground/80 mt-1.5">
-                                  Modelo utilizado para gerar o prompt (opcional).
-                                </FormDescription>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Campo de Estilo de Imagem - Mostrado apenas quando o modo é "image_generation" */}
-                {form.watch("mode") === "image_generation" && (
-                  <FormField
-                    control={form.control}
-                    name="imageStyle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
-                          <FormLabel className="font-medium">Estilo da Imagem</FormLabel>
-                        </div>
-                        <FormControl>
-                          <Select 
-                            value={field.value || "realistic"} 
-                            onValueChange={field.onChange}
-                          >
-                            <SelectTrigger className="bg-background border-muted-foreground/20 focus:ring-primary/30">
-                              <SelectValue placeholder="Selecione um estilo visual" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {imageStyles.map((style) => (
-                                <SelectItem key={style.value} value={style.value}>
-                                  {style.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormDescription className="text-xs text-muted-foreground/80">
-                          O estilo visual que a IA deve usar para gerar a imagem.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
+                                />
+                              </FormControl>
+                              <FormDescription className="text-xs text-muted-foreground/80 mt-1.5">
+                                Modelo do Gemini utilizado para gerar o prompt. Modelos mais recentes oferecem melhor qualidade.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </motion.div>
                     )}
-                  />
-                )}
-              </CardContent>
-              <CardFooter className="pt-2 pb-6 flex flex-col items-stretch gap-3">
-                <div className="flex flex-col gap-4">
-                  {/* Botão cancelar refinamento */}
-                  {isRefining && (
-                    <Button 
-                      onClick={() => setIsRefining(false)}
-                      variant="outline" 
-                      className="w-full mt-2 rounded-full border-primary/20 hover:bg-primary/5 hover:border-primary/30 transition-all"
-                    >
-                      Cancelar Refinamento
-                    </Button>
-                  )}
+                  </AnimatePresence>
 
-                  {/* Botão principal */}
-                  <motion.div 
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Button 
-                      type="submit" 
-                      disabled={isLoading} 
-                      className="w-full h-12 rounded-full bg-gradient-to-r from-primary/90 via-primary to-accent/90 shadow-md hover:shadow-lg hover:from-primary hover:to-accent/90 transition-all duration-300 font-medium text-white"
+                  {/* Campo de Estilo - Mostrado para "image_generation" e "logo_creation" */}
+                  {(form.watch("mode") === "image_generation" || form.watch("mode") === "logo_creation") && (
+                    <FormField
+                      control={form.control}
+                      name="imageStyle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                            <FormLabel className="font-medium">
+                              {form.watch("mode") === "logo_creation" ? "Estilo do Logo" : "Estilo da Imagem"}
+                            </FormLabel>
+                          </div>
+                          <FormControl>
+                            <Select
+                              value={field.value || (form.watch("mode") === "logo_creation" ? "minimalist_modern" : "realistic")}
+                              onValueChange={field.onChange}
+                            >
+                              <SelectTrigger className="bg-background border-muted-foreground/20 focus:ring-primary/30">
+                                <SelectValue placeholder={form.watch("mode") === "logo_creation" ? "Selecione um estilo de logo" : "Selecione um estilo visual"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(form.watch("mode") === "logo_creation" ? logoStyles : imageStyles).map((style) => (
+                                  <SelectItem key={style.value} value={style.value}>
+                                    {style.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormDescription className="text-xs text-muted-foreground/80">
+                            {form.watch("mode") === "logo_creation" 
+                              ? "O estilo de design que a IA deve usar para criar o logo, baseado nas tendências 2025." 
+                              : "O estilo visual que a IA deve usar para gerar a imagem."
+                            }
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </CardContent>
+                <CardFooter className="pt-2 pb-6 flex flex-col items-stretch gap-3">
+                  <div className="flex flex-col gap-4">
+                    {/* Botão cancelar refinamento */}
+                    {isRefining && (
+                      <Button
+                        onClick={() => setIsRefining(false)}
+                        variant="outline"
+                        className="w-full mt-2 rounded-full border-primary/20 hover:bg-primary/5 hover:border-primary/30 transition-all"
+                      >
+                        Cancelar Refinamento
+                      </Button>
+                    )}
+
+                    {/* Botão principal */}
+                    <motion.div
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ duration: 0.2 }}
                     >
-                      {isLoading ? (
-                        <div className="flex items-center gap-2.5">
-                          <Loader2 className="h-4 w-4 animate-spin" /> Gerando Prompt...
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2.5">
-                          <Sparkles className="h-4 w-4" /> {isRefining ? "Refinar Prompt" : "Gerar Prompt"}
+                      <Button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full h-12 rounded-full bg-gradient-to-r from-primary/90 via-primary to-accent/90 shadow-md hover:shadow-lg hover:from-primary hover:to-accent/90 transition-all duration-300 font-medium text-white"
+                      >
+                        {isLoading ? (
+                          <div className="flex items-center gap-2.5">
+                            <Loader2 className="h-4 w-4 animate-spin" /> Gerando Prompt...
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2.5">
+                            <Sparkles className="h-4 w-4" /> {isRefining ? "Refinar Prompt" : "Gerar Prompt"}
+                          </div>
+                        )}
+                      </Button>
+                    </motion.div>
+                  </div>
+
+                  {/* --- Seção de Refinamento (Condicional) --- */}
+                  {isRefining && (
+                    <div className="mt-2 border-t border-border/10 pt-3 space-y-3"> {/* Aumentar espaço */}
+                      {/* --- Mostrar Prompt Original --- */}
+                      {generatedPrompt?.genericPrompt && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-muted-foreground">Refinando o prompt:</Label>
+                          <Card className="bg-muted/40 border-muted-foreground/20 max-h-40 overflow-y-auto"> {/* Limitar altura e adicionar scroll */}
+                            <CardContent className="p-3">
+                              <pre className="text-xs whitespace-pre-wrap break-words text-foreground/80">
+                                {generatedPrompt.genericPrompt}
+                              </pre>
+                            </CardContent>
+                          </Card>
                         </div>
                       )}
-                    </Button>
-                  </motion.div>
-                </div>
-
-                {/* --- Seção de Refinamento (Condicional) --- */} 
-                {isRefining && (
-                  <div className="mt-2 border-t border-border/10 pt-3 space-y-3"> {/* Aumentar espaço */}
-                      {/* --- Mostrar Prompt Original --- */} 
-                      {generatedPrompt?.genericPrompt && ( 
-                        <div className="space-y-1.5">
-                           <Label className="text-xs font-semibold text-muted-foreground">Refinando o prompt:</Label>
-                           <Card className="bg-muted/40 border-muted-foreground/20 max-h-40 overflow-y-auto"> {/* Limitar altura e adicionar scroll */} 
-                             <CardContent className="p-3">
-                               <pre className="text-xs whitespace-pre-wrap break-words text-foreground/80">
-                                 {generatedPrompt.genericPrompt}
-                               </pre>
-                             </CardContent>
-                           </Card>
-                         </div>
-                       )}
-                      {/* --- Input Instrução de Refinamento --- */} 
-                     <div className="space-y-1.5">
-                       <Label htmlFor="modificationRequest" className="text-sm font-medium">Instrução de Modificação:</Label>
-                       <Textarea
-                         id="modificationRequest"
-                         placeholder="Ex: Faça mais curto, mude o tom para formal, adicione exemplos..."
-                         value={modificationRequest}
-                         onChange={(e) => setModificationRequest(e.target.value)}
-                         className="bg-background border-muted-foreground/20 focus-visible:ring-primary/30 min-h-[60px]"
-                         disabled={isLoading}
-                       />
+                      {/* --- Input Instrução de Refinamento --- */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="modificationRequest" className="text-sm font-medium">Instrução de Modificação:</Label>
+                        <Textarea
+                          id="modificationRequest"
+                          placeholder="Ex: Faça mais curto, mude o tom para formal, adicione exemplos..."
+                          value={modificationRequest}
+                          onChange={(e) => setModificationRequest(e.target.value)}
+                          className="bg-background border-muted-foreground/20 focus-visible:ring-primary/30 min-h-[60px]"
+                          disabled={isLoading}
+                        />
                       </div>
-                  </div>
-                )}
-              </CardFooter>
-             </form>
+                    </div>
+                  )}
+                </CardFooter>
+              </form>
             </fieldset>
           </Form>
         </Card>
 
-         <div className="lg:col-span-2 space-y-6">
-           {/* Version Notes Input */}
-           {showVersionNotes && generatedPrompt && ( // Só mostrar se tiver um prompt gerado
-             <Card className="border-primary/15 shadow-md backdrop-blur-sm">
-               <CardHeader>
-                 <CardTitle>Salvar Versão</CardTitle>
-                 <p className="text-sm text-muted-foreground">Adicione notas a esta versão do prompt antes de salvar.</p>
-               </CardHeader>
-               <CardContent>
-                    <Textarea
-                      placeholder="Ex: Ajustado para focar mais em SEO..."
-                      value={versionNotes}
-                      onChange={(e) => setVersionNotes(e.target.value)}
-                      className="border-primary/15 focus-visible:ring-primary/30"
-                    />
-               </CardContent>
-               <CardFooter className="flex justify-end space-x-2">
-                 <Button variant="outline" onClick={() => setShowVersionNotes(false)}>Cancelar</Button>
-                 <Button onClick={handleSaveVersion} className="bg-primary/90 hover:bg-primary"><Save className="mr-2 h-4 w-4"/> Salvar Versão</Button>
-               </CardFooter>
-             </Card>
-           )}
+        {/* Coluna de Análise e Sugestões */}
+        <div className="xl:col-span-1 space-y-6">
+          {/* Version Notes Input */}
+          {showVersionNotes && generatedPrompt && ( // Só mostrar se tiver um prompt gerado
+            <Card className="border-primary/15 shadow-md backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle>Salvar Versão</CardTitle>
+                <p className="text-sm text-muted-foreground">Adicione notas a esta versão do prompt antes de salvar.</p>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  placeholder="Ex: Ajustado para focar mais em SEO..."
+                  value={versionNotes}
+                  onChange={(e) => setVersionNotes(e.target.value)}
+                  className="border-primary/15 focus-visible:ring-primary/30"
+                />
+              </CardContent>
+              <CardFooter className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowVersionNotes(false)}>Cancelar</Button>
+                <Button onClick={handleSaveVersion} className="bg-primary/90 hover:bg-primary"><Save className="mr-2 h-4 w-4" /> Salvar Versão</Button>
+              </CardFooter>
+            </Card>
+          )}
 
-           {/* Preview Area */}
-           {isLoading ? (
-             <Card className="border-primary/15 shadow-lg backdrop-blur-sm">
-                <CardHeader>
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Skeleton className="h-20 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-5/6" />
-                </CardContent>
-             </Card>
-           ) : generatedPrompt ? (
-             <GlassEffect 
-               animate
-               blur="lg"
-               opacity="low"
-               glow
-               className="overflow-hidden"
-             >
-               <div className="bg-gradient-to-br from-primary/5 via-background/30 to-background/20">
-                 <div className="p-6 pb-4">
-                   <div className="flex justify-between items-center">
-                     <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-accent/80 bg-clip-text text-transparent">Prompt Gerado</h2>
-                     <div className="flex items-center space-x-1.5">
-                       {!isRefining && (
-                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                                <Button variant="ghost" size="icon-sm" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => setIsRefining(true)}>
-                                  <Zap className="h-4 w-4" />
-                                </Button>
-                              </motion.div>
-                             </TooltipTrigger>
-                            <TooltipContent className="bg-popover/90 backdrop-blur-md">Refinar este prompt</TooltipContent>
-                          </Tooltip>
-                       )}
-                       <Tooltip>
-                         <TooltipTrigger asChild>
-                           <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                             <Button variant="ghost" size="icon-sm" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={copyToClipboard}>
-                               {copied ? <CheckCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                             </Button>
-                           </motion.div>
-                         </TooltipTrigger>
-                         <TooltipContent className="bg-popover/90 backdrop-blur-md">{copied ? "Copiado!" : "Copiar Prompt"}</TooltipContent>
-                       </Tooltip>
-                       <Tooltip>
-                         <TooltipTrigger asChild>
-                           <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                             <Button variant="ghost" size="icon-sm" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => setShowVersionHistory(true)}>
-                               <History className="h-4 w-4" />
-                             </Button>
-                           </motion.div>
-                         </TooltipTrigger>
-                         <TooltipContent className="bg-popover/90 backdrop-blur-md">Histórico de Versões</TooltipContent>
-                       </Tooltip>
-                       <Tooltip>
-                         <TooltipTrigger asChild>
-                           <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                             <Button variant="ghost" size="icon-sm" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => setShowVersionNotes(true)} disabled={showVersionNotes}>
-                               <Save className="h-4 w-4" />
-                             </Button>
-                           </motion.div>
-                         </TooltipTrigger>
-                         <TooltipContent className="bg-popover/90 backdrop-blur-md">Salvar Versão Atual</TooltipContent>
-                       </Tooltip>
-                     </div>
-                   </div>
-                   <p className="text-sm text-muted-foreground mt-2">Revise o prompt gerado ou edite-o diretamente.</p>
-                 </div>
-                 <div className="px-6 pb-6">
-                   <PromptCard
-                     platform="generic"
-                     prompt={generatedPrompt.genericPrompt}
-                     onSaveEdit={handleSavePromptEdit}
-                   />
-                 </div>
-               </div>
-             </GlassEffect>
-           ) : (
-             <GlassEffect 
-               animate
-               opacity="low"
-               className="flex flex-col items-center justify-center p-8 min-h-[300px] border-dashed border-primary/20"
-             >
-               <motion.div 
-                 initial={{ opacity: 0.5, y: 5 }}
-                 animate={{ opacity: 1, y: [0, -5, 0] }}
-                 transition={{ 
-                   repeat: Infinity, 
-                   duration: 3,
-                   ease: "easeInOut"
-                 }}
-               >
-                 <Sparkles className="h-14 w-14 text-muted-foreground mb-4" />
-               </motion.div>
-               <p className="text-muted-foreground text-center font-medium">Seu prompt gerado aparecerá aqui.</p>
-               {error && (
-                 <motion.div
-                   initial={{ opacity: 0, y: 10 }}
-                   animate={{ opacity: 1, y: 0 }}
-                   exit={{ opacity: 0, y: -10 }}
-                 >
-                   <p className="text-destructive mt-2 text-sm bg-destructive/10 px-3 py-1.5 rounded-full">{error}</p>
-                 </motion.div>
-               )}
-             </GlassEffect>
-           )}
+          {/* Preview Area */}
+          {isLoading ? (
+            <Card className="border-primary/15 shadow-lg backdrop-blur-sm">
+              <CardHeader>
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+              </CardContent>
+            </Card>
+          ) : generatedPrompt ? (
+            <GlassEffect
+              animate
+              blur="lg"
+              opacity="low"
+              glow
+              className="overflow-hidden"
+            >
+              <div className="bg-gradient-to-br from-primary/5 via-background/30 to-background/20">
+                <div className="p-6 pb-4">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-accent/80 bg-clip-text text-transparent">Prompt Gerado</h2>
+                    <div className="flex items-center space-x-1.5">
+                      {!isRefining && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                              <Button variant="ghost" size="icon-sm" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => setIsRefining(true)}>
+                                <Zap className="h-4 w-4" />
+                              </Button>
+                            </motion.div>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-popover/90 backdrop-blur-md">Refinar este prompt</TooltipContent>
+                        </Tooltip>
+                      )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                            <Button variant="ghost" size="icon-sm" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={copyToClipboard}>
+                              {copied ? <CheckCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                          </motion.div>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-popover/90 backdrop-blur-md">{copied ? "Copiado!" : "Copiar Prompt"}</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                            <Button variant="ghost" size="icon-sm" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => setShowVersionHistory(true)}>
+                              <History className="h-4 w-4" />
+                            </Button>
+                          </motion.div>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-popover/90 backdrop-blur-md">Histórico de Versões</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                            <Button variant="ghost" size="icon-sm" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => setShowVersionNotes(true)} disabled={showVersionNotes}>
+                              <Save className="h-4 w-4" />
+                            </Button>
+                          </motion.div>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-popover/90 backdrop-blur-md">Salvar Versão Atual</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">Revise o prompt gerado ou edite-o diretamente.</p>
+                </div>
+                <div className="px-6 pb-6">
+                  <PromptCard
+                    platform="generic"
+                    prompt={generatedPrompt.genericPrompt}
+                    onSaveEdit={handleSavePromptEdit}
+                  />
+                </div>
+              </div>
+            </GlassEffect>
+          ) : (
+            <GlassEffect
+              animate
+              opacity="low"
+              className="flex flex-col items-center justify-center p-8 min-h-[300px] border-dashed border-primary/20"
+            >
+              <motion.div
+                initial={{ opacity: 0.5, y: 5 }}
+                animate={{ opacity: 1, y: [0, -5, 0] }}
+                transition={{
+                  repeat: Infinity,
+                  duration: 3,
+                  ease: "easeInOut"
+                }}
+              >
+                <Sparkles className="h-14 w-14 text-muted-foreground mb-4" />
+              </motion.div>
+              <p className="text-muted-foreground text-center font-medium">Seu prompt gerado aparecerá aqui.</p>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <p className="text-destructive mt-2 text-sm bg-destructive/10 px-3 py-1.5 rounded-full">{error}</p>
+                </motion.div>
+              )}
+            </GlassEffect>
+          )}
 
-           {/* Panels (conditionally rendered) */}
-           <AnimatePresence mode="wait">
-             {showHistory && (
-               <motion.div 
-                 initial={{ opacity: 0, y: 20 }} 
-                 animate={{ opacity: 1, y: 0 }} 
-                 exit={{ opacity: 0, y: -20 }}
-                 transition={{ duration: 0.3 }}
-               >
-                 <PromptHistory history={history} onSelect={handleSelectHistoryItem} />
-               </motion.div>
-             )}
-             {showVersionHistory && generatedPrompt && (
-               <motion.div 
-                 initial={{ opacity: 0, y: 20 }} 
-                 animate={{ opacity: 1, y: 0 }} 
-                 exit={{ opacity: 0, y: -20 }}
-                 transition={{ duration: 0.3 }}
-               >
-                 <VersionHistory
-                   promptId={generatedPrompt.id}
-                   onSelectVersion={handleSelectVersion}
-                   onClose={() => setShowVersionHistory(false)}
-                 />
-               </motion.div>
-             )}
-           </AnimatePresence>
-         </div>
+          {/* Panels (conditionally rendered) */}
+          <AnimatePresence mode="wait">
+            {showHistory && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <PromptHistory history={history} onSelect={handleSelectHistoryItem} />
+              </motion.div>
+            )}
+            {showVersionHistory && generatedPrompt && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <VersionHistory
+                  promptId={generatedPrompt.id}
+                  onSelectVersion={handleSelectVersion}
+                  onClose={() => setShowVersionHistory(false)}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
-         {/* Dialogs */}
-         <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
-         <CommandMenu />
-         <AIAssistantPanel />
-         {/* --- Suggestions Dialog --- */} 
-         <Dialog open={showSuggestionsDialog} onOpenChange={setShowSuggestionsDialog}>
-           <DialogContent className="max-w-lg bg-background/80 backdrop-blur-md border-primary/10 shadow-lg">
-             <DialogHeader>
-               <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-                 <Lightbulb className="h-5 w-5 text-primary animate-pulse" />
-                 <span className="bg-gradient-to-r from-primary to-accent/80 bg-clip-text text-transparent">Sugestões de Tópico</span>
-               </DialogTitle>
-               <p className="text-sm text-muted-foreground">
-                 Escolha um tópico para iniciar seu prompt ou para inspiração.
-               </p>
-             </DialogHeader>
-             <div className="pt-2 pb-1">
-               {topicSuggestions.length > 0 ? (
-                 <div className="flex flex-col max-h-[400px] overflow-y-auto -mx-6 divide-y divide-border/5">
-                   {topicSuggestions.map((topic, index) => (
-                     <motion.div
-                       key={index}
-                       initial={{ opacity: 0, y: 10 }}
-                       animate={{ opacity: 1, y: 0 }}
-                       transition={{ delay: index * 0.05, duration: 0.2 }}
-                       whileHover={{ backgroundColor: "rgba(var(--primary-rgb), 0.05)" }}
-                     >
-                       <Button 
-                         variant="ghost" 
-                         className="justify-start font-normal rounded-none w-full hover:bg-transparent px-6 py-3 text-left h-auto whitespace-normal"
-                         onClick={() => applyTopicSuggestion(topic)}
-                       >
-                         <div className="flex gap-3">
-                           <div className="bg-primary/10 p-1.5 rounded-lg flex items-center justify-center mt-0.5">
-                             <Lightbulb className="h-4 w-4 text-primary" /> 
-                           </div>
-                           <div>
-                             <p className="font-medium text-foreground">{topic}</p>
-                             <p className="text-xs text-muted-foreground mt-1">
-                               Clique para aplicar este tópico ao seu prompt
-                             </p>
-                           </div>
-                         </div>
-                       </Button>
-                     </motion.div>
-                   ))}
-                 </div>
-               ) : (
-                 <div className="flex flex-col items-center justify-center py-10">
-                   <Loader2 className="h-8 w-8 text-primary/50 animate-spin mb-4" />
-                   <p className="text-muted-foreground text-center">Buscando sugestões...</p>
-                 </div>
-               )}
-             </div>
-           </DialogContent>
-         </Dialog>
+
+
+
       </div>
+
+      {/* Dialogs */}
+      <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
+      <CommandMenu />
+      <AIAssistantPanel />
+
+      {/* --- Suggestions Dialog --- */}
+      <Dialog open={showSuggestionsDialog} onOpenChange={setShowSuggestionsDialog}>
+        <DialogContent className="max-w-lg bg-background/80 backdrop-blur-md border-primary/10 shadow-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <Lightbulb className="h-5 w-5 text-primary animate-pulse" />
+              <span className="bg-gradient-to-r from-primary to-accent/80 bg-clip-text text-transparent">Sugestões de Tópico</span>
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Escolha um tópico para iniciar seu prompt ou para inspiração.
+            </p>
+          </DialogHeader>
+          <div className="pt-2 pb-1">
+            {topicSuggestions.length > 0 ? (
+              <div className="flex flex-col max-h-[400px] overflow-y-auto -mx-6 divide-y divide-border/5">
+                {topicSuggestions.map((topic, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05, duration: 0.2 }}
+                    whileHover={{ backgroundColor: "rgba(var(--primary-rgb), 0.05)" }}
+                  >
+                    <Button
+                      variant="ghost"
+                      className="justify-start font-normal rounded-none w-full hover:bg-transparent px-6 py-3 text-left h-auto whitespace-normal"
+                      onClick={() => applyTopicSuggestion(topic)}
+                    >
+                      <div className="flex gap-3">
+                        <div className="bg-primary/10 p-1.5 rounded-lg flex items-center justify-center mt-0.5">
+                          <Lightbulb className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">{topic}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Clique para aplicar este tópico ao seu prompt
+                          </p>
+                        </div>
+                      </div>
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10">
+                <Loader2 className="h-8 w-8 text-primary/50 animate-spin mb-4" />
+                <p className="text-muted-foreground text-center">Buscando sugestões...</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   )
 }

@@ -19,24 +19,40 @@ export function BackgroundGradient({ className, children }: BackgroundGradientPr
   }, [])
 
   if (!mounted) {
-    return null
+    return (
+      <div className="relative overflow-hidden min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+        {children}
+      </div>
+    )
   }
   
   return (
     <div className="relative overflow-hidden min-h-screen">
+      {/* Background principal com gradiente animado */}
+      <div className="fixed inset-0 -z-20 animated-gradient" />
+      
+      {/* Overlay com textura sutil */}
+      <div className="fixed inset-0 -z-10 bg-gradient-to-br from-white/20 via-transparent to-black/10 dark:from-black/30 dark:via-transparent dark:to-white/5" />
+      
+      {/* Grid pattern melhorado */}
+      <div className="fixed inset-0 -z-10 bg-grid-pattern opacity-30 dark:opacity-20" />
+      
+      {/* Elementos flutuantes com cores dinâmicas */}
       <div 
         className={cn(
-          "fixed inset-0 -z-10 opacity-30 transition-opacity duration-1000",
-          theme === "dark" ? "opacity-40" : "opacity-30",
-          className
+          "fixed -z-10 transition-all duration-1000",
+          theme === "dark" ? "opacity-60" : "opacity-40"
         )}
       >
-        {/* Gradiente interativo */}
-        <div className="absolute inset-0 bg-grid-pattern" />
-        <div className="absolute top-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full bg-primary/30 blur-[100px] animate-blob1" />
-        <div className="absolute bottom-[-10%] left-[-10%] h-[600px] w-[600px] rounded-full bg-accent/20 blur-[100px] animate-blob2" />
-        <div className="absolute top-[40%] left-[20%] h-[400px] w-[400px] rounded-full bg-secondary/20 blur-[100px] animate-blob3" />
+        <div className="absolute top-[-10%] right-[-10%] h-[600px] w-[600px] rounded-full bg-gradient-to-br from-violet-400/30 to-purple-600/20 blur-[120px] animate-blob1" />
+        <div className="absolute bottom-[-10%] left-[-10%] h-[700px] w-[700px] rounded-full bg-gradient-to-tr from-blue-400/25 to-cyan-500/20 blur-[140px] animate-blob2" />
+        <div className="absolute top-[40%] left-[20%] h-[500px] w-[500px] rounded-full bg-gradient-to-bl from-pink-400/20 to-rose-500/15 blur-[100px] animate-blob3" />
+        <div className="absolute top-[20%] right-[30%] h-[400px] w-[400px] rounded-full bg-gradient-to-tl from-emerald-400/20 to-teal-500/15 blur-[80px] animate-blob4" />
       </div>
+      
+      {/* Overlay final para suavizar */}
+      <div className="fixed inset-0 -z-5 bg-white/5 dark:bg-black/10 backdrop-blur-[0.5px]" />
+      
       {children}
     </div>
   )

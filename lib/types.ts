@@ -24,7 +24,7 @@ export enum Complexity {
 }
 
 export type Length = 'short' | 'medium' | 'long';
-export type PromptMode = 'app_creation' | 'image_generation' | 'content_creation';
+export type PromptMode = 'app_creation' | 'image_generation' | 'website_creation' | 'logo_creation';
 export type Language = 'portuguese' | 'english';
 
 export type PromptParams = {
