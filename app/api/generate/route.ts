@@ -582,6 +582,7 @@ async function generatePromptWithGemini(params: PromptParams) {
 Your task is to analyze the user's request and generate a detailed and well-structured response in ${outputLanguage}, according to the specified mode.
 For "app development" mode, structure the response with sections like Objective, Features, Screen/Component Structure, Suggested Technologies, and Next Steps.
 For "website creation" mode, structure the response with sections like Project Overview, Site Structure, Design Guidelines, Key Features, Technology Stack, SEO & Performance, and Implementation Steps. Focus on modern web development trends 2025: responsive design, mobile-first approach, accessibility (WCAG), Core Web Vitals optimization, micro-interactions, clean minimalist design, and user experience best practices.
+For "logo creation" mode, structure the response with sections like Brand Analysis, Design Concept, Visual Elements, Typography, Color Palette, Style Guidelines, Applications, and Technical Specifications. Focus on modern logo design trends 2025: minimalist aesthetics, bold geometric shapes, versatile scalability, sustainable design principles, and strong brand recognition across digital and physical touchpoints.
 For other modes, adapt the structure as appropriate for the task (e.g., detailed description for images, complete text for content, clear steps for instructions, etc.).
 IMPORTANT: Use Markdown formatting to structure your response. Use headings (##, ###), bullet lists (*), numbered lists (1., 2.), **bold** for emphasis, *italic* for important terms, and \`code\` when necessary. Use tables with | to present tabular information when appropriate.
 Be practical, direct to the point, and provide useful information.
@@ -591,6 +592,7 @@ ${lengthRestriction}`
 Sua tarefa é analisar a solicitação do usuário e gerar uma resposta detalhada e bem estruturada em ${outputLanguage}, de acordo com o modo especificado.
 Para o modo "desenvolvimento de aplicativo", estruture a resposta com seções como Objetivo, Funcionalidades, Estrutura de Telas/Componentes, Tecnologias Sugeridas e Próximos Passos.
 Para o modo "criação de site", estruture a resposta com seções como Visão Geral do Projeto, Estrutura do Site, Diretrizes de Design, Funcionalidades Principais, Stack Tecnológico, SEO & Performance, e Passos de Implementação. Foque nas tendências modernas de desenvolvimento web 2025: design responsivo, abordagem mobile-first, acessibilidade (WCAG), otimização Core Web Vitals, micro-interações, design minimalista limpo, e melhores práticas de experiência do usuário.
+Para o modo "criação de logo", estruture a resposta com seções como Análise da Marca, Conceito de Design, Elementos Visuais, Tipografia, Paleta de Cores, Diretrizes de Estilo, Aplicações, e Especificações Técnicas. Foque nas tendências modernas de design de logo 2025: estética minimalista, formas geométricas ousadas, escalabilidade versátil, princípios de design sustentável, e forte reconhecimento de marca em pontos de contato digitais e físicos.
 Para outros modos, adapte a estrutura conforme apropriado para a tarefa (ex: descrição detalhada para imagem, texto completo para conteúdo, passos claros para instruções, etc.).
 IMPORTANTE: Utilize formatação Markdown para estruturar sua resposta. Use cabeçalhos (##, ###), listas com marcadores (*), listas numeradas (1., 2.), **negrito** para ênfase, *itálico* para termos importantes, e \`código\` quando necessário. Use tabelas com | para apresentar informações tabulares quando apropriado.
 Seja prático, direto ao ponto e forneça informações úteis.
@@ -612,8 +614,27 @@ Adapte TODOS os aspectos visuais para acomodar este estilo.
 Inclua referências explícitas ao estilo ${params.imageStyle.toUpperCase()} em diferentes partes do prompt.`;
     }
 
+    // Instruções específicas para criação de logo com estilo definido
+    if (params.mode === 'logo_creation' && params.imageStyle && logoStyleDefinitions[params.imageStyle]) {
+      systemPrompt += params.language === "english"
+        ? `\n\nIMPORTANT FOR LOGO CREATION: You MUST create a prompt for a logo in the style ${logoStyleDefinitions[params.imageStyle]}
+This style is an ABSOLUTE REQUIREMENT and must define the visual aesthetics of the logo.
+The logo MUST be described considering the characteristics of this specific style.
+Adapt ALL design aspects to accommodate this style.
+Include explicit references to the style ${params.imageStyle.toUpperCase()} in different parts of the prompt.
+Focus on: scalability, brand recognition, versatility across applications, and modern design trends 2025.
+Consider: typography choices, color psychology, geometric principles, and brand personality.`
+        : `\n\nIMPORTANTE PARA CRIAÇÃO DE LOGO: Você DEVE criar um prompt para um logo no estilo ${logoStyleDefinitions[params.imageStyle]}
+Este estilo é um REQUISITO ABSOLUTO e deve definir a estética visual do logo.
+O logo DEVE ser descrito considerando as características deste estilo específico.
+Adapte TODOS os aspectos de design para acomodar este estilo.
+Inclua referências explícitas ao estilo ${params.imageStyle.toUpperCase()} em diferentes partes do prompt.
+Foque em: escalabilidade, reconhecimento de marca, versatilidade em aplicações, e tendências de design moderno 2025.
+Considere: escolhas tipográficas, psicologia das cores, princípios geométricos, e personalidade da marca.`;
+    }
+
     // Adiciona menção ao prompt negativo no system prompt se ele for usado
-    if (params.mode === 'image_generation' && params.negativePrompt) {
+    if ((params.mode === 'image_generation' || params.mode === 'logo_creation') && params.negativePrompt) {
        systemPrompt += params.language === "english"
         ? `\nAlso consider the negative prompt provided by the user, specifying elements or styles to AVOID.`
         : `\nConsidere também o prompt negativo fornecido pelo usuário, especificando elementos ou estilos a EVITAR.`;
@@ -652,8 +673,26 @@ REQUISITO ABSOLUTO: A imagem deve ser ${imageStyleDefinitions[params.imageStyle]
 A descrição da imagem deve incorporar explicitamente esse estilo visual em todos os elementos.
 Adapte a composição, iluminação, texturas e outros aspectos visuais para maximizar as características do estilo ${params.imageStyle.toUpperCase()}.`;
     }
+    
+    // Adiciona instruções específicas para o modo de criação de logo
+    if (params.mode === 'logo_creation' && params.imageStyle) {
+      userPrompt += params.language === "english"
+        ? `\n\nThis request is for a LOGO CREATION prompt in ${params.imageStyle.toUpperCase()} style.
+ABSOLUTE REQUIREMENT: The logo must be ${logoStyleDefinitions[params.imageStyle]}
+The logo description must explicitly incorporate this design style in all elements.
+Adapt typography, shapes, colors, and composition to maximize the characteristics of the ${params.imageStyle.toUpperCase()} style.
+Focus on creating a scalable, memorable, and versatile brand mark that works across all applications.
+Consider modern logo design principles: simplicity, memorability, timelessness, versatility, and appropriateness.`
+        : `\n\nEsta solicitação é para um prompt de CRIAÇÃO DE LOGO no estilo ${params.imageStyle.toUpperCase()}.
+REQUISITO ABSOLUTO: O logo deve ser ${logoStyleDefinitions[params.imageStyle]}
+A descrição do logo deve incorporar explicitamente esse estilo de design em todos os elementos.
+Adapte tipografia, formas, cores e composição para maximizar as características do estilo ${params.imageStyle.toUpperCase()}.
+Foque em criar uma marca escalável, memorável e versátil que funcione em todas as aplicações.
+Considere princípios modernos de design de logo: simplicidade, memorabilidade, atemporalidade, versatilidade e adequação.`;
+    }
+    
     // Adiciona o prompt negativo ao user prompt se fornecido
-    if (params.mode === 'image_generation' && params.negativePrompt) {
+    if ((params.mode === 'image_generation' || params.mode === 'logo_creation') && params.negativePrompt) {
         userPrompt += params.language === "english"
         ? `\n\nNEGATIVE PROMPT (Elements to AVOID): ${params.negativePrompt}`
         : `\n\nPROMPT NEGATIVO (Elementos a EVITAR): ${params.negativePrompt}`;

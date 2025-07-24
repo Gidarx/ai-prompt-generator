@@ -42,13 +42,43 @@ export const templates: SimplePromptTemplate[] = [
   },
   {
     id: 'logo-minimalist',
-    name: 'Prompt para Logo Minimalista',
-    description: 'Cria um prompt detalhado para gerar um logo minimalista usando IA.',
-    mode: 'image_generation' as PromptMode,
-    defaultKeywords: 'Logo minimalista para [MARCA/CONCEITO] representando [VALORES/IDEIAS]',
+    name: 'Logo Minimalista Moderno',
+    description: 'Cria um logo minimalista seguindo as tendências 2025.',
+    mode: 'logo_creation' as PromptMode,
+    defaultKeywords: 'Logo minimalista para [MARCA] representando [VALORES]',
+    defaultTone: Tone.PROFESSIONAL,
+    defaultComplexity: Complexity.DETAILED,
+    imageStyle: 'minimalist_modern'
+  },
+  {
+    id: 'logo-tech',
+    name: 'Logo Tecnológico',
+    description: 'Desenvolve um logo futurista para empresas de tecnologia.',
+    mode: 'logo_creation' as PromptMode,
+    defaultKeywords: 'Logo tecnológico para [STARTUP/EMPRESA] com elementos [INOVADORES]',
+    defaultTone: Tone.TECHNICAL,
+    defaultComplexity: Complexity.DETAILED,
+    imageStyle: 'tech_futuristic'
+  },
+  {
+    id: 'logo-organic',
+    name: 'Logo Orgânico',
+    description: 'Cria um logo natural e sustentável para marcas eco-friendly.',
+    mode: 'logo_creation' as PromptMode,
+    defaultKeywords: 'Logo orgânico para [MARCA SUSTENTÁVEL] com elementos [NATURAIS]',
+    defaultTone: Tone.FRIENDLY,
+    defaultComplexity: Complexity.MODERATE,
+    imageStyle: 'organic_natural'
+  },
+  {
+    id: 'logo-geometric',
+    name: 'Logo Geométrico',
+    description: 'Desenvolve um logo com formas geométricas ousadas e modernas.',
+    mode: 'logo_creation' as PromptMode,
+    defaultKeywords: 'Logo geométrico para [EMPRESA] com formas [ESPECÍFICAS]',
     defaultTone: Tone.CREATIVE,
     defaultComplexity: Complexity.DETAILED,
-    imageStyle: 'minimalist'
+    imageStyle: 'bold_geometric'
   },
   {
     id: 'realistic-image',

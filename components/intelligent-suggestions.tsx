@@ -180,6 +180,12 @@ export function IntelligentSuggestions({ params, onApplySuggestion, className }:
         'experiência do usuário',
         'performance otimizada',
         'SEO friendly'
+      ],
+      logo_creation: [
+        'escalabilidade',
+        'reconhecimento de marca',
+        'versatilidade',
+        'memorabilidade'
       ]
     }
 
@@ -193,7 +199,8 @@ export function IntelligentSuggestions({ params, onApplySuggestion, className }:
     const contexts = {
       app_creation: 'Para um aplicativo moderno voltado para usuários jovens, com foco em usabilidade e performance. Deve ser compatível com dispositivos móveis e desktop.',
       image_generation: 'Para uso comercial em redes sociais, com estilo profissional e impactante. A imagem deve transmitir confiança e modernidade.',
-      website_creation: 'Para um site moderno e profissional, com foco em conversão e experiência do usuário. Deve ser responsivo, acessível e otimizado para SEO.'
+      website_creation: 'Para um site moderno e profissional, com foco em conversão e experiência do usuário. Deve ser responsivo, acessível e otimizado para SEO.',
+      logo_creation: 'Para um logo moderno e impactante, com foco em reconhecimento de marca e versatilidade. Deve ser escalável, memorável e adequado para todas as aplicações.'
     }
 
     return contexts[mode] || 'Adicione mais detalhes sobre o contexto de uso, público-alvo e objetivos específicos.'
@@ -220,7 +227,8 @@ export function IntelligentSuggestions({ params, onApplySuggestion, className }:
     const trends = {
       app_creation: ['IA integrada', 'sustentabilidade', 'acessibilidade', 'gamificação'],
       image_generation: ['minimalismo', 'cores neon', 'estilo retro', 'elementos naturais'],
-      website_creation: ['design system', 'micro-interações', 'acessibilidade', 'performance']
+      website_creation: ['design system', 'micro-interações', 'acessibilidade', 'performance'],
+      logo_creation: ['identidade visual', 'psicologia das cores', 'tipografia moderna', 'escalabilidade']
     }
 
     const modeTrends = trends[mode]
