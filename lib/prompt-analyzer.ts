@@ -94,14 +94,14 @@ export class PromptAnalyzer {
       // Check for vague words
       const vagueWords = ['coisa', 'algo', 'qualquer', 'talvez', 'tipo', 'meio']
       const hasVagueWords = vagueWords.some(word => 
-        params.keywords.toLowerCase().includes(word)
+        params.keywords?.toLowerCase().includes(word)
       )
       if (hasVagueWords) score -= 15
 
       // Check for specific terms
       const specificTerms = ['específico', 'detalhado', 'preciso', 'exato']
       const hasSpecificTerms = specificTerms.some(term => 
-        params.keywords.toLowerCase().includes(term)
+        params.keywords?.toLowerCase().includes(term)
       )
       if (hasSpecificTerms) score += 10
     }
@@ -121,14 +121,14 @@ export class PromptAnalyzer {
       // Count specific details
       const detailWords = ['como', 'quando', 'onde', 'por que', 'qual', 'quanto']
       const detailCount = detailWords.filter(word => 
-        params.keywords.toLowerCase().includes(word)
+        params.keywords?.toLowerCase().includes(word)
       ).length
       score += detailCount * 8
 
       // Technical terms bonus
       const technicalTerms = ['api', 'framework', 'algoritmo', 'interface', 'database']
       const hasTechnicalTerms = technicalTerms.some(term => 
-        params.keywords.toLowerCase().includes(term)
+        params.keywords?.toLowerCase().includes(term)
       )
       if (hasTechnicalTerms) score += 15
     }

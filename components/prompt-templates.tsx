@@ -18,7 +18,8 @@ interface PromptTemplatesProps {
 const modeLabels: Record<PromptMode, string> = {
   app_creation: "App",
   image_generation: "Imagem",
-  content_creation: "Conteúdo",
+  website_creation: "Website",
+  logo_creation: "Logo",
 };
 
 export function PromptTemplates({ templates, onSelectTemplate }: PromptTemplatesProps) {

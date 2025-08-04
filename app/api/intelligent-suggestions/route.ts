@@ -24,8 +24,12 @@ interface SmartSuggestion {
 }
 
 export async function POST(req: Request) {
+  let params: PromptParams | undefined;
+
   try {
-    const { params, type = 'all' }: SuggestionRequest = await req.json();
+    const requestData: SuggestionRequest = await req.json();
+    params = requestData.params;
+    const type = requestData.type || 'all';
 
     if (!params.keywords && !params.context) {
       return NextResponse.json(
@@ -34,7 +38,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const model = genAI.getGenerativeModel({ 
+    const model = genAI.getGenerativeModel({
       model: "gemini-2.0-flash-thinking-exp-01-21",
       generationConfig: {
         temperature: 0.7,
@@ -111,8 +115,8 @@ Máximo de 5 sugestões, priorizadas por impacto.
         ...s,
         id: `ai-suggestion-${index}`,
         confidence: Math.max(0, Math.min(100, s.confidence || 70)),
-        type: ['keyword', 'context', 'tone', 'structure', 'enhancement'].includes(s.type) 
-          ? s.type 
+        type: ['keyword', 'context', 'tone', 'structure', 'enhancement'].includes(s.type)
+          ? s.type
           : 'enhancement'
       }))
       .slice(0, 5); // Máximo 5 sugestões
@@ -121,17 +125,17 @@ Máximo de 5 sugestões, priorizadas por impacto.
 
   } catch (error: any) {
     console.error("Erro ao gerar sugestões:", error);
-    
+
     // Fallback com sugestões básicas - usar parâmetros padrão se params não estiver definido
     const fallbackParams = params || {
       keywords: '',
-      mode: 'website_creation' as PromptMode,
+      mode: 'website_creation' as any,
       tone: 'professional' as any,
       complexity: 'moderate' as any
     } as PromptParams;
-    
+
     const fallbackSuggestions = generateFallbackSuggestions(fallbackParams);
-    
+
     return NextResponse.json({ suggestions: fallbackSuggestions });
   }
 }
@@ -158,9 +162,9 @@ function generateFallbackSuggestions(params: PromptParams): SmartSuggestion[] {
       type: 'context',
       title: 'Adicionar Contexto',
       description: 'Forneça mais informações sobre o uso pretendido',
-      value: `Para uso ${params.mode === 'app_creation' ? 'em aplicativo moderno' : 
-                      params.mode === 'image_generation' ? 'comercial em redes sociais' : 
-                      'profissional'}, com foco em qualidade e impacto visual.`,
+      value: `Para uso ${params.mode === 'app_creation' ? 'em aplicativo moderno' :
+        params.mode === 'image_generation' ? 'comercial em redes sociais' :
+          'profissional'}, com foco em qualidade e impacto visual.`,
       field: 'context',
       confidence: 90,
       reasoning: 'Contexto detalhado melhora significativamente a qualidade'

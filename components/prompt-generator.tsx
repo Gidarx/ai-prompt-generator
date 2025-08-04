@@ -149,7 +149,7 @@ export function PromptGenerator() {
         tone,
         length,
         complexity: mappedComplexity, // Usar o valor mapeado do enum
-        mode: 'content_creation', // Adicionar modo padrão
+        mode: 'website_creation', // Adicionar modo padrão
         includeExamples,
       })
 
